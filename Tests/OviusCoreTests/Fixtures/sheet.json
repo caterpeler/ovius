@@ -1,0 +1,1300 @@
+{
+ "source": "mining_productivity_dashboard.xlsx (labeler repo): Recording Overview, Loading Cycles & Trips, Excavator Fleet, Executive Summary",
+ "settings": {
+  "m3_per_load": 51.1,
+  "m3_struck": 42.1,
+  "m3_heaped": 60.1
+ },
+ "cameras": [
+  {
+   "name": "mock_sample_1",
+   "section": "Section Alpha",
+   "duration_s": 1800.08,
+   "cycles": [
+    {
+     "point": "E1",
+     "truck": "T1",
+     "arrive_s": 0,
+     "spot_at_s": 201,
+     "load_start_s": 209,
+     "load_end_s": 290,
+     "wait_s": 201,
+     "spot_s": 8,
+     "load_s": 81,
+     "complete": true,
+     "estimated": false,
+     "status": "complete"
+    },
+    {
+     "point": "E23",
+     "truck": "T2",
+     "arrive_s": 360,
+     "spot_at_s": 395,
+     "load_start_s": 406,
+     "load_end_s": 450,
+     "wait_s": 35,
+     "spot_s": 11,
+     "load_s": 44,
+     "complete": true,
+     "estimated": false,
+     "status": "complete"
+    },
+    {
+     "point": "E52",
+     "truck": "T3",
+     "arrive_s": 480,
+     "spot_at_s": 500,
+     "load_start_s": 505,
+     "load_end_s": 580,
+     "wait_s": 20,
+     "spot_s": 5,
+     "load_s": 75,
+     "complete": true,
+     "estimated": false,
+     "status": "complete"
+    },
+    {
+     "point": "E50",
+     "truck": "T4",
+     "arrive_s": 480,
+     "spot_at_s": 500,
+     "load_start_s": 504,
+     "load_end_s": 580,
+     "wait_s": 20,
+     "spot_s": 4,
+     "load_s": 76,
+     "complete": true,
+     "estimated": false,
+     "status": "complete"
+    },
+    {
+     "point": "E376",
+     "truck": "T5",
+     "arrive_s": 1360,
+     "spot_at_s": 1395,
+     "load_start_s": 1403,
+     "load_end_s": 1495,
+     "wait_s": 35,
+     "spot_s": 8,
+     "load_s": 92,
+     "complete": true,
+     "estimated": false,
+     "status": "complete"
+    },
+    {
+     "point": "E426",
+     "truck": "T6",
+     "arrive_s": 1500,
+     "spot_at_s": 1525,
+     "load_start_s": 1534,
+     "load_end_s": 1630,
+     "wait_s": 25,
+     "spot_s": 9,
+     "load_s": 96,
+     "complete": true,
+     "estimated": false,
+     "status": "complete"
+    },
+    {
+     "point": "E423",
+     "truck": "T7",
+     "arrive_s": 1500,
+     "spot_at_s": 1530,
+     "load_start_s": 1544,
+     "load_end_s": 1660,
+     "wait_s": 30,
+     "spot_s": 14,
+     "load_s": 116,
+     "complete": true,
+     "estimated": false,
+     "status": "complete"
+    },
+    {
+     "point": "E1",
+     "truck": "T8",
+     "arrive_s": 0,
+     "spot_at_s": 300,
+     "load_start_s": 308.9,
+     "load_end_s": 386.7,
+     "wait_s": 300,
+     "spot_s": 8.9,
+     "load_s": 77.8,
+     "complete": false,
+     "estimated": true,
+     "status": "queued_only"
+    }
+   ],
+   "excavators": [
+    {
+     "point": "E1",
+     "working_s": 420.8,
+     "seen_s": 420.8,
+     "idle_s": 0
+    },
+    {
+     "point": "E23",
+     "working_s": 108,
+     "seen_s": 108,
+     "idle_s": 0
+    },
+    {
+     "point": "E376",
+     "working_s": 159,
+     "seen_s": 159,
+     "idle_s": 0
+    },
+    {
+     "point": "E423",
+     "working_s": 173,
+     "seen_s": 173,
+     "idle_s": 0
+    },
+    {
+     "point": "E426",
+     "working_s": 139,
+     "seen_s": 139,
+     "idle_s": 0
+    },
+    {
+     "point": "E50",
+     "working_s": 135,
+     "seen_s": 135,
+     "idle_s": 0
+    },
+    {
+     "point": "E52",
+     "working_s": 134,
+     "seen_s": 134,
+     "idle_s": 0
+    }
+   ]
+  },
+  {
+   "name": "mock_sample_2",
+   "section": "Section Beta",
+   "duration_s": 303.64,
+   "cycles": [
+    {
+     "point": "E3",
+     "truck": "T1",
+     "arrive_s": null,
+     "spot_at_s": 0,
+     "load_start_s": 31,
+     "load_end_s": 214,
+     "wait_s": 0.0,
+     "spot_s": 31,
+     "load_s": 183,
+     "complete": true,
+     "estimated": false,
+     "status": "complete"
+    },
+    {
+     "point": "E3",
+     "truck": "T2",
+     "arrive_s": 0,
+     "spot_at_s": 223,
+     "load_start_s": 282,
+     "load_end_s": 444.7,
+     "wait_s": 223,
+     "spot_s": 59,
+     "load_s": 162.7,
+     "complete": false,
+     "estimated": true,
+     "status": "in_progress"
+    },
+    {
+     "point": "E3",
+     "truck": "T3",
+     "arrive_s": 165,
+     "spot_at_s": 482,
+     "load_start_s": 533.1,
+     "load_end_s": 706.3,
+     "wait_s": 138.6,
+     "spot_s": 51.1,
+     "load_s": 173.2,
+     "complete": false,
+     "estimated": true,
+     "status": "queued_only"
+    }
+   ],
+   "excavators": [
+    {
+     "point": "E3",
+     "working_s": 558.9,
+     "seen_s": 617.9,
+     "idle_s": 59
+    },
+    {
+     "point": "E5",
+     "working_s": 15,
+     "seen_s": 25,
+     "idle_s": 10
+    }
+   ]
+  },
+  {
+   "name": "mock_sample_3",
+   "section": "Section Gamma",
+   "duration_s": 82.96,
+   "cycles": [
+    {
+     "point": "E5",
+     "truck": "T1",
+     "arrive_s": null,
+     "spot_at_s": 0,
+     "load_start_s": 0,
+     "load_end_s": 116,
+     "wait_s": 0.0,
+     "spot_s": 0.0,
+     "load_s": 116,
+     "complete": false,
+     "estimated": true,
+     "status": "in_progress"
+    },
+    {
+     "point": "E5",
+     "truck": "T2",
+     "arrive_s": 9,
+     "spot_at_s": 121.2,
+     "load_start_s": 130.9,
+     "load_end_s": 230.9,
+     "wait_s": 74,
+     "spot_s": 9.7,
+     "load_s": 100,
+     "complete": false,
+     "estimated": true,
+     "status": "queued_only"
+    },
+    {
+     "point": "E5",
+     "truck": "T3",
+     "arrive_s": 11,
+     "spot_at_s": 237.5,
+     "load_start_s": 247.8,
+     "load_end_s": 376.1,
+     "wait_s": 72,
+     "spot_s": 10.3,
+     "load_s": 128.3,
+     "complete": false,
+     "estimated": true,
+     "status": "queued_only"
+    }
+   ],
+   "excavators": [
+    {
+     "point": "E5",
+     "working_s": 344.3,
+     "seen_s": 344.3,
+     "idle_s": 0
+    }
+   ]
+  },
+  {
+   "name": "mock_sample_4",
+   "section": "Section Gamma",
+   "duration_s": 337.66,
+   "cycles": [
+    {
+     "point": "E37",
+     "truck": "T1",
+     "arrive_s": 0,
+     "spot_at_s": 14,
+     "load_start_s": 20,
+     "load_end_s": 54,
+     "wait_s": 14,
+     "spot_s": 6,
+     "load_s": 34,
+     "complete": true,
+     "estimated": false,
+     "status": "complete"
+    },
+    {
+     "point": "E39",
+     "truck": "T2",
+     "arrive_s": 0,
+     "spot_at_s": 14,
+     "load_start_s": 20,
+     "load_end_s": 54,
+     "wait_s": 14,
+     "spot_s": 6,
+     "load_s": 34,
+     "complete": true,
+     "estimated": false,
+     "status": "complete"
+    },
+    {
+     "point": "E37",
+     "truck": "T3",
+     "arrive_s": 0,
+     "spot_at_s": 200,
+     "load_start_s": 210,
+     "load_end_s": 243.1,
+     "wait_s": 102,
+     "spot_s": 10,
+     "load_s": 33.1,
+     "complete": false,
+     "estimated": true,
+     "status": "queued_only"
+    },
+    {
+     "point": "E39",
+     "truck": "T4",
+     "arrive_s": 0,
+     "spot_at_s": 260,
+     "load_start_s": 271,
+     "load_end_s": 304.2,
+     "wait_s": 102,
+     "spot_s": 11,
+     "load_s": 33.2,
+     "complete": false,
+     "estimated": true,
+     "status": "queued_only"
+    }
+   ],
+   "excavators": [
+    {
+     "point": "E37",
+     "working_s": 128.1,
+     "seen_s": 148.1,
+     "idle_s": 20
+    },
+    {
+     "point": "E39",
+     "working_s": 135.2,
+     "seen_s": 148.2,
+     "idle_s": 13
+    }
+   ]
+  },
+  {
+   "name": "mock_sample_5",
+   "section": "Section Beta",
+   "duration_s": 343.94,
+   "cycles": [
+    {
+     "point": "E1",
+     "truck": "T1",
+     "arrive_s": 114,
+     "spot_at_s": 123,
+     "load_start_s": 125,
+     "load_end_s": 183,
+     "wait_s": 9,
+     "spot_s": 2,
+     "load_s": 58,
+     "complete": true,
+     "estimated": false,
+     "status": "complete"
+    },
+    {
+     "point": "E1",
+     "truck": "T2",
+     "arrive_s": 0,
+     "spot_at_s": 175,
+     "load_start_s": 183,
+     "load_end_s": 255,
+     "wait_s": 175,
+     "spot_s": 8,
+     "load_s": 72,
+     "complete": true,
+     "estimated": false,
+     "status": "complete"
+    },
+    {
+     "point": "E1",
+     "truck": "T3",
+     "arrive_s": 0,
+     "spot_at_s": 260,
+     "load_start_s": 266.8,
+     "load_end_s": 320.5,
+     "wait_s": 255,
+     "spot_s": 6.8,
+     "load_s": 53.7,
+     "complete": false,
+     "estimated": true,
+     "status": "queued_only"
+    }
+   ],
+   "excavators": [
+    {
+     "point": "E1",
+     "working_s": 289.7,
+     "seen_s": 311.7,
+     "idle_s": 22
+    }
+   ]
+  },
+  {
+   "name": "mock_sample_6",
+   "section": "Section Beta",
+   "duration_s": 124.6,
+   "cycles": [
+    {
+     "point": "E2",
+     "truck": "T1",
+     "arrive_s": 0,
+     "spot_at_s": 68,
+     "load_start_s": 94.5,
+     "load_end_s": 211,
+     "wait_s": 68,
+     "spot_s": 26.5,
+     "load_s": 116.5,
+     "complete": false,
+     "estimated": true,
+     "status": "queued_only"
+    },
+    {
+     "point": "E2",
+     "truck": "T2",
+     "arrive_s": 5,
+     "spot_at_s": 224.1,
+     "load_start_s": 256.3,
+     "load_end_s": 342.9,
+     "wait_s": 55,
+     "spot_s": 32.2,
+     "load_s": 86.6,
+     "complete": false,
+     "estimated": true,
+     "status": "queued_only"
+    },
+    {
+     "point": "E2",
+     "truck": "T3",
+     "arrive_s": 52,
+     "spot_at_s": 355.1,
+     "load_start_s": 367.9,
+     "load_end_s": 491.1,
+     "wait_s": 20,
+     "spot_s": 12.8,
+     "load_s": 123.2,
+     "complete": false,
+     "estimated": true,
+     "status": "queued_only"
+    },
+    {
+     "point": "E2",
+     "truck": "T4",
+     "arrive_s": 6.8,
+     "spot_at_s": 516.8,
+     "load_start_s": 538,
+     "load_end_s": 627.5,
+     "wait_s": 40.2,
+     "spot_s": 21.2,
+     "load_s": 89.5,
+     "complete": false,
+     "estimated": true,
+     "status": "queued_only"
+    },
+    {
+     "point": "E2",
+     "truck": "T5",
+     "arrive_s": 55.5,
+     "spot_at_s": 651.6,
+     "load_start_s": 683.8,
+     "load_end_s": 797.2,
+     "wait_s": 16,
+     "spot_s": 32.2,
+     "load_s": 113.4,
+     "complete": false,
+     "estimated": true,
+     "status": "queued_only"
+    }
+   ],
+   "excavators": [
+    {
+     "point": "E1",
+     "working_s": 0,
+     "seen_s": 72.1,
+     "idle_s": 72.1
+    },
+    {
+     "point": "E2",
+     "working_s": 571.2,
+     "seen_s": 601.3,
+     "idle_s": 30.1
+    }
+   ]
+  },
+  {
+   "name": "mock_sample_7",
+   "section": "Section Alpha",
+   "duration_s": 122.8,
+   "cycles": [
+    {
+     "point": "E5",
+     "truck": "T2",
+     "arrive_s": 0,
+     "spot_at_s": 53,
+     "load_start_s": 62.5,
+     "load_end_s": 141.7,
+     "wait_s": 53,
+     "spot_s": 9.5,
+     "load_s": 79.2,
+     "complete": false,
+     "estimated": true,
+     "status": "queued_only"
+    },
+    {
+     "point": "E5",
+     "truck": "T3",
+     "arrive_s": 92,
+     "spot_at_s": 149.6,
+     "load_start_s": 157.4,
+     "load_end_s": 241.8,
+     "wait_s": 28,
+     "spot_s": 7.8,
+     "load_s": 84.4,
+     "complete": false,
+     "estimated": true,
+     "status": "queued_only"
+    }
+   ],
+   "excavators": [
+    {
+     "point": "E4",
+     "working_s": 89.4,
+     "seen_s": 89.4,
+     "idle_s": 0
+    },
+    {
+     "point": "E5",
+     "working_s": 286.4,
+     "seen_s": 286.4,
+     "idle_s": 0
+    }
+   ]
+  },
+  {
+   "name": "mock_sample_8",
+   "section": "Section Beta",
+   "duration_s": 453.28,
+   "cycles": [
+    {
+     "point": "E1",
+     "truck": "T1",
+     "arrive_s": null,
+     "spot_at_s": 0,
+     "load_start_s": 0,
+     "load_end_s": 150,
+     "wait_s": 0.0,
+     "spot_s": 0.0,
+     "load_s": 150,
+     "complete": false,
+     "estimated": true,
+     "status": "in_progress"
+    },
+    {
+     "point": "E1",
+     "truck": "T2",
+     "arrive_s": 0,
+     "spot_at_s": 175,
+     "load_start_s": 205,
+     "load_end_s": 412,
+     "wait_s": 175,
+     "spot_s": 30,
+     "load_s": 207,
+     "complete": true,
+     "estimated": false,
+     "status": "complete"
+    },
+    {
+     "point": "E1",
+     "truck": "T3",
+     "arrive_s": 137,
+     "spot_at_s": 418,
+     "load_start_s": 446.7,
+     "load_end_s": 605.3,
+     "wait_s": 281,
+     "spot_s": 28.7,
+     "load_s": 158.6,
+     "complete": false,
+     "estimated": true,
+     "status": "queued_only"
+    },
+    {
+     "point": "E1",
+     "truck": "T4",
+     "arrive_s": 438,
+     "spot_at_s": 629.2,
+     "load_start_s": 660.1,
+     "load_end_s": 824.7,
+     "wait_s": 15,
+     "spot_s": 30.9,
+     "load_s": 164.6,
+     "complete": false,
+     "estimated": true,
+     "status": "queued_only"
+    }
+   ],
+   "excavators": [
+    {
+     "point": "E1",
+     "working_s": 726.5,
+     "seen_s": 776.5,
+     "idle_s": 50
+    }
+   ]
+  },
+  {
+   "name": "mock_sample_9",
+   "section": "Section Gamma",
+   "duration_s": 899.96,
+   "cycles": [
+    {
+     "point": "E16",
+     "truck": "T1",
+     "arrive_s": 0,
+     "spot_at_s": 0,
+     "load_start_s": 0,
+     "load_end_s": 107.2,
+     "wait_s": 0.0,
+     "spot_s": 0.0,
+     "load_s": 107.2,
+     "complete": false,
+     "estimated": true,
+     "status": "in_progress"
+    },
+    {
+     "point": "E11",
+     "truck": "T2",
+     "arrive_s": 0,
+     "spot_at_s": 30,
+     "load_start_s": 41,
+     "load_end_s": 145,
+     "wait_s": 30,
+     "spot_s": 11,
+     "load_s": 104,
+     "complete": true,
+     "estimated": false,
+     "status": "complete"
+    },
+    {
+     "point": "E16",
+     "truck": "T3",
+     "arrive_s": 55,
+     "spot_at_s": 80,
+     "load_start_s": 92,
+     "load_end_s": 204,
+     "wait_s": 25,
+     "spot_s": 12,
+     "load_s": 112,
+     "complete": true,
+     "estimated": false,
+     "status": "complete"
+    },
+    {
+     "point": "E11",
+     "truck": "T4",
+     "arrive_s": 160,
+     "spot_at_s": 190,
+     "load_start_s": 204,
+     "load_end_s": 295,
+     "wait_s": 30,
+     "spot_s": 14,
+     "load_s": 91,
+     "complete": true,
+     "estimated": false,
+     "status": "complete"
+    },
+    {
+     "point": "E16",
+     "truck": "T5",
+     "arrive_s": 220,
+     "spot_at_s": 270,
+     "load_start_s": 285,
+     "load_end_s": 380,
+     "wait_s": 50,
+     "spot_s": 15,
+     "load_s": 95,
+     "complete": true,
+     "estimated": false,
+     "status": "complete"
+    },
+    {
+     "point": "E11",
+     "truck": "T6A",
+     "arrive_s": 310,
+     "spot_at_s": 330,
+     "load_start_s": 339,
+     "load_end_s": 535,
+     "wait_s": 20,
+     "spot_s": 9,
+     "load_s": 196,
+     "complete": true,
+     "estimated": false,
+     "status": "complete"
+    },
+    {
+     "point": "E11",
+     "truck": "T6B",
+     "arrive_s": 575,
+     "spot_at_s": 595,
+     "load_start_s": 600,
+     "load_end_s": 745,
+     "wait_s": 20,
+     "spot_s": 5,
+     "load_s": 145,
+     "complete": true,
+     "estimated": false,
+     "status": "complete"
+    },
+    {
+     "point": "E16",
+     "truck": "T7",
+     "arrive_s": 390,
+     "spot_at_s": 410,
+     "load_start_s": 418,
+     "load_end_s": 535,
+     "wait_s": 20,
+     "spot_s": 8,
+     "load_s": 117,
+     "complete": true,
+     "estimated": false,
+     "status": "complete"
+    },
+    {
+     "point": "E16",
+     "truck": "T8",
+     "arrive_s": 550,
+     "spot_at_s": 595,
+     "load_start_s": 607,
+     "load_end_s": 696,
+     "wait_s": 45,
+     "spot_s": 12,
+     "load_s": 89,
+     "complete": true,
+     "estimated": false,
+     "status": "complete"
+    },
+    {
+     "point": "E11",
+     "truck": "T9",
+     "arrive_s": 760,
+     "spot_at_s": 810,
+     "load_start_s": 821,
+     "load_end_s": 925.7,
+     "wait_s": 50,
+     "spot_s": 11,
+     "load_s": 104.7,
+     "complete": false,
+     "estimated": true,
+     "status": "in_progress"
+    },
+    {
+     "point": "E423",
+     "truck": "T10",
+     "arrive_s": 830,
+     "spot_at_s": 850,
+     "load_start_s": 857,
+     "load_end_s": 976.1,
+     "wait_s": 20,
+     "spot_s": 7,
+     "load_s": 119.1,
+     "complete": false,
+     "estimated": true,
+     "status": "in_progress"
+    }
+   ],
+   "excavators": [
+    {
+     "point": "E11",
+     "working_s": 892.7,
+     "seen_s": 901.7,
+     "idle_s": 9
+    },
+    {
+     "point": "E16",
+     "working_s": 940.2,
+     "seen_s": 940.2,
+     "idle_s": 0
+    },
+    {
+     "point": "E423",
+     "working_s": 176.1,
+     "seen_s": 176.1,
+     "idle_s": 0
+    }
+   ]
+  },
+  {
+   "name": "mock_sample_10",
+   "section": "Section Beta",
+   "duration_s": 31.17,
+   "cycles": [
+    {
+     "point": "E8",
+     "truck": "T1",
+     "arrive_s": null,
+     "spot_at_s": 0,
+     "load_start_s": 0,
+     "load_end_s": 77.4,
+     "wait_s": 0.0,
+     "spot_s": 0.0,
+     "load_s": 77.4,
+     "complete": false,
+     "estimated": true,
+     "status": "in_progress"
+    },
+    {
+     "point": "E3",
+     "truck": "T2",
+     "arrive_s": null,
+     "spot_at_s": 0,
+     "load_start_s": 0,
+     "load_end_s": 96.4,
+     "wait_s": 0.0,
+     "spot_s": 0.0,
+     "load_s": 96.4,
+     "complete": false,
+     "estimated": true,
+     "status": "in_progress"
+    },
+    {
+     "point": "E10",
+     "truck": "T3",
+     "arrive_s": null,
+     "spot_at_s": 0,
+     "load_start_s": 0,
+     "load_end_s": 72,
+     "wait_s": 0.0,
+     "spot_s": 0.0,
+     "load_s": 72,
+     "complete": false,
+     "estimated": true,
+     "status": "in_progress"
+    },
+    {
+     "point": "E19",
+     "truck": "T4",
+     "arrive_s": 0,
+     "spot_at_s": 7,
+     "load_start_s": 10,
+     "load_end_s": 76.8,
+     "wait_s": 7,
+     "spot_s": 3,
+     "load_s": 66.8,
+     "complete": false,
+     "estimated": true,
+     "status": "in_progress"
+    },
+    {
+     "point": "E8",
+     "truck": "T5",
+     "arrive_s": 0,
+     "spot_at_s": 99.8,
+     "load_start_s": 109.4,
+     "load_end_s": 175.1,
+     "wait_s": 31.2,
+     "spot_s": 9.6,
+     "load_s": 65.7,
+     "complete": false,
+     "estimated": true,
+     "status": "queued_only"
+    },
+    {
+     "point": "E3",
+     "truck": "T6",
+     "arrive_s": 0,
+     "spot_at_s": 111.8,
+     "load_start_s": 114.8,
+     "load_end_s": 187.9,
+     "wait_s": 31.2,
+     "spot_s": 3,
+     "load_s": 73.1,
+     "complete": false,
+     "estimated": true,
+     "status": "queued_only"
+    },
+    {
+     "point": "E10",
+     "truck": "T7",
+     "arrive_s": 0,
+     "spot_at_s": 95.3,
+     "load_start_s": 98.3,
+     "load_end_s": 204.6,
+     "wait_s": 31.2,
+     "spot_s": 3,
+     "load_s": 106.3,
+     "complete": false,
+     "estimated": true,
+     "status": "queued_only"
+    },
+    {
+     "point": "E19",
+     "truck": "T8",
+     "arrive_s": 0,
+     "spot_at_s": 102.5,
+     "load_start_s": 105.5,
+     "load_end_s": 193.4,
+     "wait_s": 31.2,
+     "spot_s": 3,
+     "load_s": 87.9,
+     "complete": false,
+     "estimated": true,
+     "status": "queued_only"
+    }
+   ],
+   "excavators": [
+    {
+     "point": "E10",
+     "working_s": 178.3,
+     "seen_s": 178.3,
+     "idle_s": 0
+    },
+    {
+     "point": "E19",
+     "working_s": 164.7,
+     "seen_s": 164.7,
+     "idle_s": 0
+    },
+    {
+     "point": "E3",
+     "working_s": 169.5,
+     "seen_s": 169.5,
+     "idle_s": 0
+    },
+    {
+     "point": "E8",
+     "working_s": 143.1,
+     "seen_s": 143.1,
+     "idle_s": 0
+    }
+   ]
+  },
+  {
+   "name": "mock_sample_11",
+   "section": "Section Alpha",
+   "duration_s": 180.69,
+   "cycles": [
+    {
+     "point": "E11",
+     "truck": "T1",
+     "arrive_s": 0,
+     "spot_at_s": 75,
+     "load_start_s": 80,
+     "load_end_s": 153.1,
+     "wait_s": 75,
+     "spot_s": 5,
+     "load_s": 73.1,
+     "complete": false,
+     "estimated": true,
+     "status": "in_progress"
+    },
+    {
+     "point": "E11",
+     "truck": "T2",
+     "arrive_s": 0,
+     "spot_at_s": 162.1,
+     "load_start_s": 166.6,
+     "load_end_s": 249.7,
+     "wait_s": 72,
+     "spot_s": 4.5,
+     "load_s": 83.1,
+     "complete": false,
+     "estimated": true,
+     "status": "queued_only"
+    },
+    {
+     "point": "E11",
+     "truck": "T3",
+     "arrive_s": 3,
+     "spot_at_s": 258.2,
+     "load_start_s": 263.7,
+     "load_end_s": 340.8,
+     "wait_s": 21,
+     "spot_s": 5.5,
+     "load_s": 77.1,
+     "complete": false,
+     "estimated": true,
+     "status": "queued_only"
+    },
+    {
+     "point": "E11",
+     "truck": "T4",
+     "arrive_s": 0,
+     "spot_at_s": 350.9,
+     "load_start_s": 356.7,
+     "load_end_s": 439.3,
+     "wait_s": 29,
+     "spot_s": 5.8,
+     "load_s": 82.6,
+     "complete": false,
+     "estimated": true,
+     "status": "queued_only"
+    },
+    {
+     "point": "E11",
+     "truck": "T5",
+     "arrive_s": 0,
+     "spot_at_s": 449.6,
+     "load_start_s": 454.2,
+     "load_end_s": 534.8,
+     "wait_s": 72,
+     "spot_s": 4.6,
+     "load_s": 80.6,
+     "complete": false,
+     "estimated": true,
+     "status": "queued_only"
+    }
+   ],
+   "excavators": [
+    {
+     "point": "E11",
+     "working_s": 465.5,
+     "seen_s": 465.5,
+     "idle_s": 0
+    },
+    {
+     "point": "E9",
+     "working_s": 27,
+     "seen_s": 29,
+     "idle_s": 2
+    }
+   ]
+  }
+ ],
+ "expected": {
+  "rows": {
+   "mock_sample_1": {
+    "cycles": 8,
+    "load_s_mean": 82.2,
+    "load_s_stdev": 20.7,
+    "queue_s_mean": 83.2,
+    "queue_s_stdev": 106.7,
+    "excavator_idle_s_mean": 0,
+    "excavator_idle_s_stdev": 0,
+    "truck_idle_s_mean": 83.2,
+    "truck_idle_s_stdev": 106.7,
+    "volume_m3": 408.8,
+    "excavator_util": 1,
+    "truck_util": 0.521,
+    "observed": 7,
+    "estimated": 1,
+    "volume_struck_m3": 336.8,
+    "volume_heaped_m3": 480.8,
+    "excavators": 7
+   },
+   "mock_sample_2": {
+    "cycles": 3,
+    "load_s_mean": 173,
+    "load_s_stdev": 10.2,
+    "queue_s_mean": 180.8,
+    "queue_s_stdev": 59.7,
+    "excavator_idle_s_mean": 34.5,
+    "excavator_idle_s_stdev": 34.6,
+    "truck_idle_s_mean": 120.5,
+    "truck_idle_s_stdev": 112.6,
+    "volume_m3": 153.3,
+    "excavator_util": 0.893,
+    "truck_util": 0.6459999999999999,
+    "observed": 1,
+    "estimated": 2,
+    "volume_struck_m3": 126.3,
+    "volume_heaped_m3": 180.3,
+    "excavators": 2
+   },
+   "mock_sample_3": {
+    "cycles": 3,
+    "load_s_mean": 114.8,
+    "load_s_stdev": 14.2,
+    "queue_s_mean": 73,
+    "queue_s_stdev": 1.4,
+    "excavator_idle_s_mean": 0,
+    "excavator_idle_s_stdev": 0,
+    "truck_idle_s_mean": 48.7,
+    "truck_idle_s_stdev": 42.2,
+    "volume_m3": 153.3,
+    "excavator_util": 1,
+    "truck_util": 0.7140000000000001,
+    "observed": 0,
+    "estimated": 3,
+    "volume_struck_m3": 126.3,
+    "volume_heaped_m3": 180.3,
+    "excavators": 1
+   },
+   "mock_sample_4": {
+    "cycles": 4,
+    "load_s_mean": 33.6,
+    "load_s_stdev": 0.5,
+    "queue_s_mean": 58,
+    "queue_s_stdev": 50.8,
+    "excavator_idle_s_mean": 16.5,
+    "excavator_idle_s_stdev": 4.9,
+    "truck_idle_s_mean": 58,
+    "truck_idle_s_stdev": 50.8,
+    "volume_m3": 204.4,
+    "excavator_util": 0.889,
+    "truck_util": 0.419,
+    "observed": 2,
+    "estimated": 2,
+    "volume_struck_m3": 168.4,
+    "volume_heaped_m3": 240.4,
+    "excavators": 2
+   },
+   "mock_sample_5": {
+    "cycles": 3,
+    "load_s_mean": 61.2,
+    "load_s_stdev": 9.6,
+    "queue_s_mean": 146.3,
+    "queue_s_stdev": 125.5,
+    "excavator_idle_s_mean": 22,
+    "excavator_idle_s_stdev": 0,
+    "truck_idle_s_mean": 146.3,
+    "truck_idle_s_stdev": 125.5,
+    "volume_m3": 153.3,
+    "excavator_util": 0.929,
+    "truck_util": 0.314,
+    "observed": 2,
+    "estimated": 1,
+    "volume_struck_m3": 126.3,
+    "volume_heaped_m3": 180.3,
+    "excavators": 1
+   },
+   "mock_sample_6": {
+    "cycles": 5,
+    "load_s_mean": 105.8,
+    "load_s_stdev": 16.7,
+    "queue_s_mean": 39.8,
+    "queue_s_stdev": 22.3,
+    "excavator_idle_s_mean": 51.1,
+    "excavator_idle_s_stdev": 29.7,
+    "truck_idle_s_mean": 39.8,
+    "truck_idle_s_stdev": 22.3,
+    "volume_m3": 255.5,
+    "excavator_util": 0.848,
+    "truck_util": 0.767,
+    "observed": 0,
+    "estimated": 5,
+    "volume_struck_m3": 210.5,
+    "volume_heaped_m3": 300.5,
+    "excavators": 2
+   },
+   "mock_sample_7": {
+    "cycles": 2,
+    "load_s_mean": 81.8,
+    "load_s_stdev": 3.7,
+    "queue_s_mean": 40.5,
+    "queue_s_stdev": 17.7,
+    "excavator_idle_s_mean": 0,
+    "excavator_idle_s_stdev": 0,
+    "truck_idle_s_mean": 40.5,
+    "truck_idle_s_stdev": 17.7,
+    "volume_m3": 102.2,
+    "excavator_util": 1,
+    "truck_util": 0.691,
+    "observed": 0,
+    "estimated": 2,
+    "volume_struck_m3": 84.2,
+    "volume_heaped_m3": 120.2,
+    "excavators": 2
+   },
+   "mock_sample_8": {
+    "cycles": 4,
+    "load_s_mean": 170.1,
+    "load_s_stdev": 25.4,
+    "queue_s_mean": 157,
+    "queue_s_stdev": 133.9,
+    "excavator_idle_s_mean": 50,
+    "excavator_idle_s_stdev": 0,
+    "truck_idle_s_mean": 117.8,
+    "truck_idle_s_stdev": 134.6,
+    "volume_m3": 204.4,
+    "excavator_util": 0.9359999999999999,
+    "truck_util": 0.62,
+    "observed": 1,
+    "estimated": 3,
+    "volume_struck_m3": 168.4,
+    "volume_heaped_m3": 240.4,
+    "excavators": 1
+   },
+   "mock_sample_9": {
+    "cycles": 11,
+    "load_s_mean": 116.4,
+    "load_s_stdev": 30.7,
+    "queue_s_mean": 31,
+    "queue_s_stdev": 12.6,
+    "excavator_idle_s_mean": 3,
+    "excavator_idle_s_stdev": 5.2,
+    "truck_idle_s_mean": 28.2,
+    "truck_idle_s_stdev": 15.2,
+    "volume_m3": 562.1,
+    "excavator_util": 0.996,
+    "truck_util": 0.8170000000000001,
+    "observed": 8,
+    "estimated": 3,
+    "volume_struck_m3": 463.1,
+    "volume_heaped_m3": 661.1,
+    "excavators": 3
+   },
+   "mock_sample_10": {
+    "cycles": 8,
+    "load_s_mean": 80.7,
+    "load_s_stdev": 14.7,
+    "queue_s_mean": 26.4,
+    "queue_s_stdev": 10.8,
+    "excavator_idle_s_mean": 0,
+    "excavator_idle_s_stdev": 0,
+    "truck_idle_s_mean": 16.5,
+    "truck_idle_s_stdev": 15.9,
+    "volume_m3": 408.8,
+    "excavator_util": 1,
+    "truck_util": 0.835,
+    "observed": 0,
+    "estimated": 8,
+    "volume_struck_m3": 336.8,
+    "volume_heaped_m3": 480.8,
+    "excavators": 4
+   },
+   "mock_sample_11": {
+    "cycles": 5,
+    "load_s_mean": 79.3,
+    "load_s_stdev": 4.2,
+    "queue_s_mean": 53.8,
+    "queue_s_stdev": 26.5,
+    "excavator_idle_s_mean": 1,
+    "excavator_idle_s_stdev": 1.4,
+    "truck_idle_s_mean": 53.8,
+    "truck_idle_s_stdev": 26.5,
+    "volume_m3": 255.5,
+    "excavator_util": 0.996,
+    "truck_util": 0.611,
+    "observed": 0,
+    "estimated": 5,
+    "volume_struck_m3": 210.5,
+    "volume_heaped_m3": 300.5,
+    "excavators": 2
+   }
+  },
+  "total": {
+   "cycles": 56,
+   "load_s_mean": 99.9,
+   "load_s_stdev": 13.690909090909088,
+   "queue_s_mean": 80.89090909090908,
+   "queue_s_stdev": 51.627272727272725,
+   "excavator_idle_s_mean": 16.19090909090909,
+   "excavator_idle_s_stdev": 6.8909090909090915,
+   "truck_idle_s_mean": 68.48181818181818,
+   "truck_idle_s_stdev": 60.90909090909091,
+   "volume_m3": 2861.6000000000004,
+   "excavator_util": 0.9533636363636364,
+   "truck_util": 0.6322727272727273,
+   "observed": 21,
+   "estimated": 35,
+   "volume_struck_m3": 2357.6000000000004,
+   "volume_heaped_m3": 3365.6000000000004,
+   "excavators": 27
+  },
+  "summary": {
+   "volume_m3": 2861.6,
+   "volume_observed_m3": 1073.1,
+   "cycles": 56,
+   "observed": 21,
+   "estimated": 35,
+   "load_s_mean": 98.8,
+   "load_s_stdev": 39.9,
+   "load_s_median": 90.2,
+   "queue_total_s": 3306.6,
+   "queued_trucks": 49,
+   "excavator_util_pct": 94.0
+  }
+ }
+}

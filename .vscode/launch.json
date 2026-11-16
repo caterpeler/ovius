@@ -1,0 +1,24 @@
+{
+  "configurations": [
+    {
+      "type": "swift",
+      "request": "launch",
+      "args": [],
+      "cwd": "${workspaceFolder:c4-dashboard}",
+      "name": "Debug Ovius",
+      "target": "Ovius",
+      "configuration": "debug",
+      "preLaunchTask": "swift: Build Debug Ovius"
+    },
+    {
+      "type": "swift",
+      "request": "launch",
+      "args": [],
+      "cwd": "${workspaceFolder:c4-dashboard}",
+      "name": "Release Ovius",
+      "target": "Ovius",
+      "configuration": "release",
+      "preLaunchTask": "swift: Build Release Ovius"
+    }
+  ]
+}
