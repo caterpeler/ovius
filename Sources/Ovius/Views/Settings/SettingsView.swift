@@ -1,119 +1,147 @@
 import SwiftUI
 
-/// Native macOS Settings workspace editing Domain 2 `AppSettings` and `NetworkManager.Configuration`.
+/// Native macOS Settings workspace.
 public struct SettingsView: View {
     @Bindable public var viewModel: SettingsViewModel
+    public let category: SettingsCategory?
+    public let onClearTelemetryCaches: (() -> Void)?
 
-    public init(viewModel: SettingsViewModel) {
+    public init(
+        viewModel: SettingsViewModel,
+        category: SettingsCategory? = nil,
+        onClearTelemetryCaches: (() -> Void)? = nil
+    ) {
         self.viewModel = viewModel
+        self.category = category
+        self.onClearTelemetryCaches = onClearTelemetryCaches
     }
 
     public var body: some View {
         Form {
-            SwiftUI.Section("Volumetric Payload Assumptions (m³ per Cycle)") {
-                LabeledContent("Mean Payload (m³)") {
-                    TextField("51.1", value: $viewModel.meanPayloadM3, format: .number.precision(.fractionLength(1)))
-                        .frame(width: 110)
-                        .multilineTextAlignment(.trailing)
-                }
-                LabeledContent("Struck Payload (m³)") {
-                    TextField("42.1", value: $viewModel.struckPayloadM3, format: .number.precision(.fractionLength(1)))
-                        .frame(width: 110)
-                        .multilineTextAlignment(.trailing)
-                }
-                LabeledContent("Heaped Payload (m³)") {
-                    TextField("60.1", value: $viewModel.heapedPayloadM3, format: .number.precision(.fractionLength(1)))
-                        .frame(width: 110)
-                        .multilineTextAlignment(.trailing)
-                }
+            if category == nil || category == .endpoint {
+                endpointConfigurationSection
+                endpointActionsSection
             }
 
-            SwiftUI.Section("Locked Business Rules & Shift Schedule (UTC)") {
-                LabeledContent("Stationary Idle Allowance (seconds — Rule 4.1)") {
-                    HStack(spacing: 8) {
-                        TextField("300", value: $viewModel.idleThresholdS, format: .number)
-                            .frame(width: 90)
-                            .multilineTextAlignment(.trailing)
-                        Stepper("", value: $viewModel.idleThresholdS, in: 0...1800, step: 30)
-                            .labelsHidden()
-                    }
-                }
-
-                LabeledContent("Shift Edge Window (minutes)") {
-                    HStack(spacing: 8) {
-                        TextField("60", value: $viewModel.shiftEdgeWindowMin, format: .number)
-                            .frame(width: 90)
-                            .multilineTextAlignment(.trailing)
-                        Stepper("", value: $viewModel.shiftEdgeWindowMin, in: 10...180, step: 15)
-                            .labelsHidden()
-                    }
-                }
-
-                TextField("Shift Start Hours (HH:mm, comma-separated)", text: $viewModel.shiftStartHoursText)
-                TextField("Break Windows (HH:mm-HH:mm, comma-separated)", text: $viewModel.breakWindowsText)
-            }
-
-            SwiftUI.Section("AWS Telemetry Endpoint Configuration") {
-                TextField("Primary CloudFront API URL", text: $viewModel.primaryBaseURLText)
-                TextField("Fallback API Gateway URL (optional)", text: $viewModel.fallbackBaseURLText)
-                SecureField("API Key (x-api-key, optional)", text: $viewModel.apiKeyText)
-
-                LabeledContent("Request Timeout (seconds)") {
-                    TextField("30", value: $viewModel.requestTimeoutSeconds, format: .number.precision(.fractionLength(0)))
-                        .frame(width: 90)
-                        .multilineTextAlignment(.trailing)
-                }
-
-                HStack(spacing: 12) {
-                    Button {
-                        Task { await viewModel.testConnection() }
-                    } label: {
-                        if viewModel.isTestingConnection {
-                            ProgressView().controlSize(.small)
-                        } else {
-                            Label("Test Connection", systemImage: "antenna.radiowaves.left.and.right")
-                        }
-                    }
-                    .disabled(viewModel.isTestingConnection)
-
-                    if let connectionResult = viewModel.connectionTestResult {
-                        Text(connectionResult)
-                            .font(.caption)
-                            .foregroundStyle(.green)
-                    }
-                }
-            }
-
-            SwiftUI.Section {
-                HStack {
-                    Button("Reset Defaults") {
-                        Task { await viewModel.resetDefaults() }
-                    }
-
-                    Spacer()
-
-                    if let status = viewModel.statusMessage {
-                        Text(status)
-                            .font(.caption)
-                            .foregroundStyle(.green)
-                    }
-                    if let error = viewModel.errorMessage {
-                        Text(error)
-                            .font(.caption)
-                            .foregroundStyle(.red)
-                    }
-
-                    Button("Save Settings") {
-                        Task { await viewModel.saveSettings() }
-                    }
-                    .buttonStyle(.borderedProminent)
-                }
+            if category == nil || category == .storage {
+                offlineCacheSection
             }
         }
         .formStyle(.grouped)
-        .navigationTitle("Settings")
+        .scrollContentBackground(.hidden)
+        .background(Tokens.bg)
+        .navigationTitle(category?.title ?? "Settings")
+        .navigationSplitViewColumnWidth(min: OviusDesign.Column.detailMin, ideal: 680)
         .task {
             await viewModel.load()
         }
+    }
+
+    private var endpointConfigurationSection: some View {
+        SwiftUI.Section("AWS Telemetry Endpoint Configuration") {
+            TextField("Primary CloudFront API URL", text: $viewModel.primaryBaseURLText)
+            TextField("Fallback API Gateway URL (optional)", text: $viewModel.fallbackBaseURLText)
+            SecureField("API Key (x-api-key, optional)", text: $viewModel.apiKeyText)
+
+            LabeledContent("Request Timeout (seconds)") {
+                TextField("30", value: $viewModel.requestTimeoutSeconds, format: .number.precision(.fractionLength(0)))
+                    .frame(minWidth: 80, maxWidth: 140)
+                    .multilineTextAlignment(.trailing)
+            }
+
+            HStack(spacing: OviusDesign.Spacing.standard) {
+                Button(action: runConnectionTest) {
+                    if viewModel.isTestingConnection {
+                        ProgressView().controlSize(.small)
+                    } else {
+                        Label("Test Connection", systemImage: "antenna.radiowaves.left.and.right")
+                    }
+                }
+                .disabled(viewModel.isTestingConnection)
+
+                if let connectionResult = viewModel.connectionTestResult {
+                    Label(connectionResult, systemImage: "checkmark.circle.fill")
+                        .font(.footnote)
+                        .foregroundStyle(Tokens.success.text)
+                }
+            }
+        }
+    }
+
+    private var endpointActionsSection: some View {
+        SwiftUI.Section {
+            HStack {
+                Button("Reset Defaults", action: resetEndpointDefaults)
+
+                Spacer()
+
+                if let status = viewModel.statusMessage {
+                    Label(status, systemImage: "checkmark.circle.fill")
+                        .font(.footnote)
+                        .foregroundStyle(Tokens.success.text)
+                }
+                if let error = viewModel.errorMessage {
+                    Label(error, systemImage: "exclamationmark.triangle.fill")
+                        .font(.footnote)
+                        .foregroundStyle(Tokens.danger.text)
+                }
+
+                Button("Save Settings", action: saveEndpointSettings)
+                    .buttonStyle(.borderedProminent)
+            }
+        }
+    }
+
+    private var offlineCacheSection: some View {
+        SwiftUI.Section("LZFSE Offline Telemetry Cache") {
+            LabeledContent("Status") {
+                Text(viewModel.diskCacheEnabled ? "Enabled (LZFSE Compressed)" : "Disabled")
+                    .foregroundStyle(Tokens.text2)
+            }
+
+            LabeledContent("Cached Recordings") {
+                Text("\(viewModel.diskCacheFileCount)")
+                    .monospacedDigit()
+            }
+
+            LabeledContent("Disk Footprint") {
+                Text(viewModel.diskCacheTotalBytes, format: .byteCount(style: .file))
+                    .monospacedDigit()
+            }
+
+            LabeledContent("Location") {
+                Text(viewModel.diskCachePath)
+                    .font(.footnote.monospaced())
+                    .foregroundStyle(Tokens.text2)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+
+            HStack {
+                Button("Refresh Cache Info", action: viewModel.refreshCacheStats)
+
+                Spacer()
+
+                Button("Clear Offline Cache", role: .destructive, action: clearCacheAndNotify)
+                    .disabled(viewModel.diskCacheFileCount == 0)
+            }
+        }
+    }
+
+    private func runConnectionTest() {
+        Task { await viewModel.testConnection() }
+    }
+
+    private func resetEndpointDefaults() {
+        Task { await viewModel.resetDefaults() }
+    }
+
+    private func saveEndpointSettings() {
+        Task { await viewModel.saveSettings() }
+    }
+
+    private func clearCacheAndNotify() {
+        viewModel.clearDiskCache()
+        onClearTelemetryCaches?()
     }
 }

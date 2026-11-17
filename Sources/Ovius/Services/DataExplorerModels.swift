@@ -1,14 +1,5 @@
 import Foundation
 
-/// Top-5 lead entry tagged with its evaluating section for Widget 4 (`LeadsPanelWidget`).
-public struct SectionEvaluatedLead: Identifiable, Sendable, Equatable {
-    public var id: String { "\(sectionId)|\(evaluatedLead.lead.leadId)" }
-    public let sectionId: String
-    public let sectionName: String
-    public let evaluatedLead: EvaluatedLead
-    public let associatedDiagnosticIds: [String]
-}
-
 /// Current navigation tier inside the 3-layer hierarchical Data Explorer.
 public enum ExplorerDrilldownLevel: Equatable, Sendable {
     case recordings
@@ -16,7 +7,7 @@ public enum ExplorerDrilldownLevel: Equatable, Sendable {
     case stateTimings(recording: RecordingExplorerRow, cycle: CycleExplorerRow)
 }
 
-/// Layer 1 row in Data Explorer: raw `RecordingDTO` enriched with client-side filtered cycle statistics.
+/// Layer 1 row in Data Explorer: raw `RecordingDTO` enriched with client-side recording cycle statistics.
 public struct RecordingExplorerRow: Identifiable, Sendable, Equatable, Hashable {
     public var id: String { recordingId }
 
@@ -24,6 +15,7 @@ public struct RecordingExplorerRow: Identifiable, Sendable, Equatable, Hashable 
     public let filename: String
     public let timestamp: String
     public let startDate: Date
+    public let formattedTimestamp: String
     public let sectionId: String
     public let sectionName: String
     public let cameraId: String
@@ -31,13 +23,11 @@ public struct RecordingExplorerRow: Identifiable, Sendable, Equatable, Hashable 
     public let resolution: String
     public let fps: Double
     public let durationS: Double
-    public let effectiveWindowHours: Double
 
     public let totalCycleCount: Int
     public let completeCycleCount: Int
     public let incompleteCycleCount: Int
-    public let totalVolumeM3: Double
-    public let volumetricRateM3Hr: Double
+    public let avgPassesPerCycle: Double
     public let avgQueueTimeS: Double
     public let avgSpotTimeS: Double
     public let avgLoadDurationS: Double
@@ -68,9 +58,8 @@ public struct CycleExplorerRow: Identifiable, Sendable, Equatable, Hashable {
     public let spotDurationS: Double
     public let loadDurationS: Double
     public let departureLagS: Double
-    /// Strictly `-1` sentinel unavailable marker -> optional `totalCycleDurationS` is `nil` when incomplete (Rule 4.2).
+    /// Nullified (`nil`) whenever `cycleStatus != "complete"` per Business Rule 4.2.
     public let totalCycleDurationS: Double?
-    public let payloadM3: Double
     public let scoopCount: Int
     public let uncertainSegmentCount: Int
 
@@ -80,7 +69,7 @@ public struct CycleExplorerRow: Identifiable, Sendable, Equatable, Hashable {
     }
 }
 
-/// Layer 3 machine state timing row in Data Explorer (`StateSegmentDTO` with UTC clock & Rule 4.3 flag).
+/// Layer 3 machine state timing row in Data Explorer (`StateSegmentDTO` with Rule 4.3 flag).
 public struct StateTimingExplorerRow: Identifiable, Sendable, Equatable {
     public var id: String { segmentId }
 
@@ -94,7 +83,6 @@ public struct StateTimingExplorerRow: Identifiable, Sendable, Equatable {
     public let startS: Double
     public let endS: Double
     public let durationS: Double
-    public let utcClockStart: String
     public let confidence: Double
     public let isUncertain: Bool
 }
@@ -120,7 +108,7 @@ public struct ScoopTimingExplorerRow: Identifiable, Sendable, Equatable {
 public enum RecordingSortField: String, CaseIterable, Identifiable, Sendable {
     case dateDesc = "Date"
     case cyclesDesc = "Cycles"
-    case volumeDesc = "Volume (m³)"
+    case passesDesc = "Passes/Cycle"
     case queueDesc = "Queue (s)"
     case loadDesc = "Load (s)"
     case cameraAsc = "Camera"

@@ -34,6 +34,7 @@ public enum NetworkError: LocalizedError, Sendable, Equatable {
 }
 
 /// Singleton network entry point interfacing with the Ovius CloudFront -> API Gateway -> Lambda backend.
+/// Snapshot config is read cleanly on the actor while HTTP execution & JSON decoding run in parallel off-actor.
 public actor NetworkManager {
     public static let shared = NetworkManager()
 
@@ -87,18 +88,21 @@ public actor NetworkManager {
 
     private let session: URLSession
     private var configuration: Configuration
-    private let decoder: JSONDecoder
 
     public init(
-        session: URLSession = .shared,
+        session: URLSession? = nil,
         configuration: Configuration = .default
     ) {
-        self.session = session
+        self.session = session ?? Self.makeOptimizedSession()
         self.configuration = configuration
+    }
 
-        let decoder = JSONDecoder()
-        decoder.keyDecodingStrategy = .convertFromSnakeCase
-        self.decoder = decoder
+    private static func makeOptimizedSession() -> URLSession {
+        let config = URLSessionConfiguration.default
+        config.httpMaximumConnectionsPerHost = 12
+        config.waitsForConnectivity = true
+        config.requestCachePolicy = .reloadIgnoringLocalCacheData
+        return URLSession(configuration: config)
     }
 
     /// Updates endpoint base URLs or optional `x-api-key` authentication at runtime.
@@ -115,41 +119,89 @@ public actor NetworkManager {
 
     /// Fetches one page from `GET /api/v1/metrics` (composite recordings, haul_cycles, optional state_segments).
     public func fetchMetricsPage(filters: TelemetryQueryFilters = TelemetryQueryFilters()) async throws -> MetricsBundleResponse {
-        try await request(path: "metrics", filters: filters)
+        let config = configuration
+        return try await Self.requestNonisolated(path: "metrics", filters: filters, session: session, configuration: config)
     }
 
     /// Fetches one page from `GET /api/v1/metrics/recordings`.
     public func fetchRecordingsPage(filters: TelemetryQueryFilters = TelemetryQueryFilters()) async throws -> RecordingsPageResponse {
-        try await request(path: "metrics/recordings", filters: filters)
+        let config = configuration
+        return try await Self.requestNonisolated(path: "metrics/recordings", filters: filters, session: session, configuration: config)
     }
 
     /// Fetches one page from `GET /api/v1/metrics/cycles`.
     public func fetchCyclesPage(filters: TelemetryQueryFilters = TelemetryQueryFilters()) async throws -> CyclesPageResponse {
-        try await request(path: "metrics/cycles", filters: filters)
+        let config = configuration
+        return try await Self.requestNonisolated(path: "metrics/cycles", filters: filters, session: session, configuration: config)
     }
 
     /// Fetches one page from `GET /api/v1/metrics/segments`.
     public func fetchSegmentsPage(filters: TelemetryQueryFilters = TelemetryQueryFilters()) async throws -> SegmentsPageResponse {
-        try await request(path: "metrics/segments", filters: filters)
+        let config = configuration
+        return try await Self.requestNonisolated(path: "metrics/segments", filters: filters, session: session, configuration: config)
     }
 
     /// Fetches bounding-box track template pointers from `GET /api/v1/bboxes`.
     public func fetchBBoxesTemplate(filters: TelemetryQueryFilters = TelemetryQueryFilters()) async throws -> TemplatePageResponse<BBoxTemplateItemDTO> {
-        try await request(path: "bboxes", filters: filters)
+        let config = configuration
+        return try await Self.requestNonisolated(path: "bboxes", filters: filters, session: session, configuration: config)
     }
 
     /// Fetches video stream template pointers from `GET /api/v1/videos`.
     public func fetchVideosTemplate(filters: TelemetryQueryFilters = TelemetryQueryFilters()) async throws -> TemplatePageResponse<VideoTemplateItemDTO> {
-        try await request(path: "videos", filters: filters)
+        let config = configuration
+        return try await Self.requestNonisolated(path: "videos", filters: filters, session: session, configuration: config)
     }
 
-    // MARK: - Cursor-Paginated Full Fetches
+    // MARK: - Parallel Cursor-Paginated Fetches (Off-Actor)
+
+    /// Fetches `haul_cycles` (`include_scoops=true`) and `state_segments` in parallel for a single recording.
+    public func fetchRecordingCyclesAndSegments(
+        recordingId: String,
+        durationS: Double,
+        maxPages: Int = 12
+    ) async throws -> (cycles: [HaulCycleDTO], segments: [StateSegmentDTO], truncated: Bool) {
+        let config = configuration
+        let sessionRef = session
+        let todEnd = max(43_200.0, durationS)
+
+        let cycleFilters = TelemetryQueryFilters(
+            recordingIds: [recordingId],
+            todEndS: todEnd,
+            includeScoops: true,
+            limit: 15_000
+        )
+        let segmentFilters = TelemetryQueryFilters(
+            recordingIds: [recordingId],
+            todEndS: todEnd,
+            limit: 15_000
+        )
+
+        async let cyclesTask = Self.fetchAllCyclesNonisolated(
+            filters: cycleFilters,
+            maxPages: maxPages,
+            session: sessionRef,
+            configuration: config
+        )
+        async let segmentsTask = Self.fetchAllSegmentsNonisolated(
+            filters: segmentFilters,
+            maxPages: maxPages,
+            session: sessionRef,
+            configuration: config
+        )
+
+        let cycRes = try await cyclesTask
+        let segRes = try await segmentsTask
+        return (cycRes.items, segRes.items, cycRes.hitPageCap || segRes.hitPageCap)
+    }
 
     /// Automatically drains all `next_token` pages for `GET /api/v1/metrics`.
     public func fetchAllMetrics(
         filters: TelemetryQueryFilters = TelemetryQueryFilters(),
         maxPages: Int? = nil
     ) async throws -> MetricsBundleResponse {
+        let config = configuration
+        let sessionRef = session
         var recordings: [RecordingDTO] = []
         var seenRecordingIds: Set<String> = []
         var cycles: [HaulCycleDTO] = []
@@ -165,11 +217,18 @@ public actor NetworkManager {
         )
         var queryType = "metrics"
 
-        try await collectAllPages(
+        try await Self.collectAllPages(
             initialFilters: filters,
             maxPages: maxPages,
-            fetchPage: { try await fetchMetricsPage(filters: $0) },
-            nextTokenOf: { $0.pagination.nextToken },
+            fetchPage: { pageFilters in
+                try await Self.requestNonisolated(
+                    path: "metrics",
+                    filters: pageFilters,
+                    session: sessionRef,
+                    configuration: config
+                )
+            },
+            nextTokenOf: { (page: MetricsBundleResponse) in page.pagination.nextToken },
             onPage: { _, page in
                 queryType = page.queryType
                 for rec in page.recordings where seenRecordingIds.insert(rec.recordingId).inserted {
@@ -211,12 +270,21 @@ public actor NetworkManager {
         filters: TelemetryQueryFilters = TelemetryQueryFilters(),
         maxPages: Int? = nil
     ) async throws -> (items: [RecordingDTO], hitPageCap: Bool) {
+        let config = configuration
+        let sessionRef = session
         var collected: [RecordingDTO] = []
-        let hitCap = try await collectAllPages(
+        let hitCap = try await Self.collectAllPages(
             initialFilters: filters,
             maxPages: maxPages,
-            fetchPage: { try await fetchRecordingsPage(filters: $0) },
-            nextTokenOf: { $0.pagination.nextToken },
+            fetchPage: { pageFilters in
+                try await Self.requestNonisolated(
+                    path: "metrics/recordings",
+                    filters: pageFilters,
+                    session: sessionRef,
+                    configuration: config
+                )
+            },
+            nextTokenOf: { (page: RecordingsPageResponse) in page.pagination.nextToken },
             onPage: { _, page in
                 collected.append(contentsOf: page.recordings)
             }
@@ -237,17 +305,13 @@ public actor NetworkManager {
         filters: TelemetryQueryFilters = TelemetryQueryFilters(),
         maxPages: Int? = nil
     ) async throws -> (items: [HaulCycleDTO], hitPageCap: Bool) {
-        var collected: [HaulCycleDTO] = []
-        let hitCap = try await collectAllPages(
-            initialFilters: filters,
+        let config = configuration
+        return try await Self.fetchAllCyclesNonisolated(
+            filters: filters,
             maxPages: maxPages,
-            fetchPage: { try await fetchCyclesPage(filters: $0) },
-            nextTokenOf: { $0.pagination.nextToken },
-            onPage: { _, page in
-                collected.append(contentsOf: page.haulCycles)
-            }
+            session: session,
+            configuration: config
         )
-        return (collected, hitCap)
     }
 
     /// Automatically drains all `next_token` pages for `GET /api/v1/metrics/segments`.
@@ -263,12 +327,62 @@ public actor NetworkManager {
         filters: TelemetryQueryFilters = TelemetryQueryFilters(),
         maxPages: Int? = nil
     ) async throws -> (items: [StateSegmentDTO], hitPageCap: Bool) {
+        let config = configuration
+        return try await Self.fetchAllSegmentsNonisolated(
+            filters: filters,
+            maxPages: maxPages,
+            session: session,
+            configuration: config
+        )
+    }
+
+    // MARK: - Nonisolated Parallel HTTP & Decoding Helpers
+
+    private nonisolated static func fetchAllCyclesNonisolated(
+        filters: TelemetryQueryFilters,
+        maxPages: Int?,
+        session: URLSession,
+        configuration: Configuration
+    ) async throws -> (items: [HaulCycleDTO], hitPageCap: Bool) {
+        var collected: [HaulCycleDTO] = []
+        let hitCap = try await collectAllPages(
+            initialFilters: filters,
+            maxPages: maxPages,
+            fetchPage: { pageFilters in
+                try await requestNonisolated(
+                    path: "metrics/cycles",
+                    filters: pageFilters,
+                    session: session,
+                    configuration: configuration
+                )
+            },
+            nextTokenOf: { (page: CyclesPageResponse) in page.pagination.nextToken },
+            onPage: { _, page in
+                collected.append(contentsOf: page.haulCycles)
+            }
+        )
+        return (collected, hitCap)
+    }
+
+    private nonisolated static func fetchAllSegmentsNonisolated(
+        filters: TelemetryQueryFilters,
+        maxPages: Int?,
+        session: URLSession,
+        configuration: Configuration
+    ) async throws -> (items: [StateSegmentDTO], hitPageCap: Bool) {
         var collected: [StateSegmentDTO] = []
         let hitCap = try await collectAllPages(
             initialFilters: filters,
             maxPages: maxPages,
-            fetchPage: { try await fetchSegmentsPage(filters: $0) },
-            nextTokenOf: { $0.pagination.nextToken },
+            fetchPage: { pageFilters in
+                try await requestNonisolated(
+                    path: "metrics/segments",
+                    filters: pageFilters,
+                    session: session,
+                    configuration: configuration
+                )
+            },
+            nextTokenOf: { (page: SegmentsPageResponse) in page.pagination.nextToken },
             onPage: { _, page in
                 collected.append(contentsOf: page.stateSegments)
             }
@@ -276,10 +390,8 @@ public actor NetworkManager {
         return (collected, hitCap)
     }
 
-    // MARK: - Internal Helpers
-
     @discardableResult
-    private func collectAllPages<Page>(
+    private nonisolated static func collectAllPages<Page>(
         initialFilters: TelemetryQueryFilters,
         maxPages: Int?,
         fetchPage: (TelemetryQueryFilters) async throws -> Page,
@@ -310,15 +422,17 @@ public actor NetworkManager {
         }
     }
 
-    private func request<Response: Decodable>(
+    private nonisolated static func requestNonisolated<Response: Decodable & Sendable>(
         path: String,
-        filters: TelemetryQueryFilters
+        filters: TelemetryQueryFilters,
+        session: URLSession,
+        configuration: Configuration
     ) async throws -> Response {
         try validate(filters)
 
         let primaryURL = try buildURL(baseURL: configuration.primaryBaseURL, path: path, filters: filters)
         do {
-            return try await execute(url: primaryURL)
+            return try await execute(url: primaryURL, session: session, configuration: configuration)
         } catch let error as NetworkError {
             guard shouldRetryOnFallback(for: error),
                   let fallbackBase = configuration.fallbackBaseURL,
@@ -326,7 +440,7 @@ public actor NetworkManager {
                 throw error
             }
             let fallbackURL = try buildURL(baseURL: fallbackBase, path: path, filters: filters)
-            return try await execute(url: fallbackURL)
+            return try await execute(url: fallbackURL, session: session, configuration: configuration)
         } catch {
             if error is CancellationError {
                 throw error
@@ -339,11 +453,11 @@ public actor NetworkManager {
                 throw error
             }
             let fallbackURL = try buildURL(baseURL: fallbackBase, path: path, filters: filters)
-            return try await execute(url: fallbackURL)
+            return try await execute(url: fallbackURL, session: session, configuration: configuration)
         }
     }
 
-    private func shouldRetryOnFallback(for error: NetworkError) -> Bool {
+    private nonisolated static func shouldRetryOnFallback(for error: NetworkError) -> Bool {
         switch error {
         case .upstreamError, .invalidResponse:
             true
@@ -354,7 +468,7 @@ public actor NetworkManager {
         }
     }
 
-    private func validate(_ filters: TelemetryQueryFilters) throws {
+    private nonisolated static func validate(_ filters: TelemetryQueryFilters) throws {
         if let limit = filters.limit, !(1...Configuration.maxPageLimit).contains(limit) {
             throw NetworkError.invalidQuery("limit must be between 1 and \(Configuration.maxPageLimit).")
         }
@@ -369,7 +483,7 @@ public actor NetworkManager {
         }
     }
 
-    private func buildURL(baseURL: URL, path: String, filters: TelemetryQueryFilters) throws -> URL {
+    private nonisolated static func buildURL(baseURL: URL, path: String, filters: TelemetryQueryFilters) throws -> URL {
         let endpointURL = baseURL.appendingPathComponent(path)
         guard var components = URLComponents(url: endpointURL, resolvingAgainstBaseURL: false) else {
             throw NetworkError.invalidURL(endpointURL.absoluteString)
@@ -384,7 +498,11 @@ public actor NetworkManager {
         return finalURL
     }
 
-    private func execute<Response: Decodable>(url: URL) async throws -> Response {
+    private nonisolated static func execute<Response: Decodable & Sendable>(
+        url: URL,
+        session: URLSession,
+        configuration: Configuration
+    ) async throws -> Response {
         var urlRequest = URLRequest(url: url)
         urlRequest.httpMethod = "GET"
         urlRequest.timeoutInterval = configuration.requestTimeoutSeconds
@@ -402,15 +520,17 @@ public actor NetworkManager {
             throw mapHTTPError(statusCode: httpResponse.statusCode, data: data)
         }
 
-        do {
-            return try decoder.decode(Response.self, from: data)
-        } catch {
-            throw NetworkError.decodingFailed(error.localizedDescription)
-        }
+        return try await Task.detached(priority: .userInitiated) {
+            do {
+                return try JSONDecoder().decode(Response.self, from: data)
+            } catch {
+                throw NetworkError.decodingFailed(error.localizedDescription)
+            }
+        }.value
     }
 
-    private func mapHTTPError(statusCode: Int, data: Data) -> NetworkError {
-        if let apiError = try? decoder.decode(APIErrorResponse.self, from: data) {
+    private nonisolated static func mapHTTPError(statusCode: Int, data: Data) -> NetworkError {
+        if let apiError = try? JSONDecoder().decode(APIErrorResponse.self, from: data) {
             if statusCode == 400 {
                 return .badRequest(apiError.message ?? apiError.error)
             }

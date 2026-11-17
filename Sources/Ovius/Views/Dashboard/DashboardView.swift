@@ -1,79 +1,76 @@
 import SwiftUI
 
-/// Root Dashboard workspace organizing:
-/// 1) Sticky top 4-widget PowerBI filter & leads deck (`DashboardFilterDeckView`)
-/// 2) Dedicated Diagnostic Card views (`DashboardDiagnosticsSectionView`)
-/// 3) Horizontal Rule (`Divider()`)
-/// 4) Bottom 3-layer Data Explorer (`DataExplorerView`)
+/// Right-hand Dashboard detail workspace with bordered metric panels and dynamic-height Data Explorer.
 public struct DashboardView: View {
-    @Bindable public var viewModel: DashboardViewModel
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    public let viewModel: DashboardViewModel
 
     public init(viewModel: DashboardViewModel) {
         self.viewModel = viewModel
     }
 
     public var body: some View {
-        VStack(spacing: 0) {
-            // Sticky Top 4-Widget Deck (Always Present)
-            DashboardFilterDeckView(viewModel: viewModel)
+        VStack(alignment: .leading, spacing: OviusDesign.Spacing.section) {
+            if let errorMessage = viewModel.errorMessage {
+                DashboardStatusBannerView(
+                    title: "Telemetry Sync Error",
+                    message: errorMessage,
+                    accent: Tokens.danger,
+                    systemImage: "xmark.octagon.fill"
+                )
+            }
 
-            // Scrollable Dashboard Cards + Horizontal Rule + Data Explorer
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    if let errorMessage = viewModel.errorMessage {
-                        statusBanner(
-                            title: "Telemetry Sync Error",
-                            message: errorMessage,
-                            color: .red,
-                            systemImage: "xmark.octagon.fill"
-                        )
-                    }
+            if viewModel.isDataTruncated {
+                DashboardStatusBannerView(
+                    title: "Telemetry Page Cap Reached",
+                    message: "The query reached its multi-page cap. Select fewer recordings for exhaustive segment coverage.",
+                    accent: Tokens.warning,
+                    systemImage: "exclamationmark.triangle.fill"
+                )
+            }
 
-                    if viewModel.isDataTruncated {
-                        statusBanner(
-                            title: "Multi-Page Telemetry Cap Reached",
-                            message: "The current query reached its multi-page cap. Narrow the Date Range or Cluster scope for exhaustive raw cycle coverage.",
-                            color: .orange,
-                            systemImage: "exclamationmark.triangle.fill"
-                        )
-                    }
+            if viewModel.isFilteringData {
+                TelemetryStreamingBannerView(progress: viewModel.telemetryFetchProgress)
+            }
 
-                    DashboardDiagnosticsSectionView(viewModel: viewModel)
+            if viewModel.filteredRecordings.isEmpty && !viewModel.isInitialLoading {
+                ContentUnavailableView(
+                    "No Recording Selected",
+                    systemImage: "sidebar.left",
+                    description: Text("Select one or more recordings (or use Select All) in the recordings column, then click refresh to load metrics.")
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                DashboardMetricCardsView(
+                    summary: viewModel.metricsSummary,
+                    isLoading: viewModel.isInitialLoading && viewModel.explorer.recordingRows.isEmpty
+                )
 
-                    Divider()
-                        .padding(.vertical, 4)
+                DividerLine()
 
-                    DataExplorerView(viewModel: viewModel)
-                }
-                .padding(20)
+                DataExplorerView(viewModel: viewModel)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             }
         }
-        .navigationTitle("Operational Dashboard")
+        .padding(OviusDesign.Spacing.page)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(Tokens.bg)
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            if viewModel.sidebar.hasPendingSelectionChanges && !viewModel.isInitialLoading {
+                PendingSelectionRefreshBarView(
+                    selectedCount: viewModel.sidebar.filterState.selectedRecordingIds.count,
+                    onRefresh: viewModel.refreshPendingSelection
+                )
+                .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
+            }
+        }
+        .animation(reduceMotion ? .default : Tokens.Animation.normal, value: viewModel.sidebar.hasPendingSelectionChanges)
+        .navigationTitle(viewModel.sidebar.activeCluster?.name ?? "Dashboard")
+        .navigationSubtitle("\(viewModel.sidebar.appliedRecordingIds.count) clip\(viewModel.sidebar.appliedRecordingIds.count == 1 ? "" : "s") active")
+        .navigationSplitViewColumnWidth(min: OviusDesign.Column.detailMin, ideal: 760)
         .task {
-            if viewModel.clusterRecordings.isEmpty && !viewModel.isInitialLoading {
+            if viewModel.sidebar.clusterRecordings.isEmpty && !viewModel.isInitialLoading {
                 await viewModel.loadInitialAndRefresh()
-            }
-        }
-    }
-
-    private func statusBanner(
-        title: String,
-        message: String,
-        color: Color,
-        systemImage: String
-    ) -> some View {
-        GroupBox {
-            HStack(alignment: .top, spacing: 10) {
-                Image(systemName: systemImage)
-                    .foregroundStyle(color)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title)
-                        .font(.subheadline.weight(.semibold))
-                    Text(message)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
             }
         }
     }

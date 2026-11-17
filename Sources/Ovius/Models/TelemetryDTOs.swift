@@ -105,7 +105,7 @@ public struct TelemetryQueryFilters: Sendable, Equatable {
 
 // MARK: - Domain 1 Telemetry Entities (DynamoDB DTOs)
 
-/// Recording item from `ovius-recording`.
+/// Recording item from `ovius-recording` with parsed timestamp & display label cached at decode time.
 public struct RecordingDTO: Codable, Sendable, Identifiable, Equatable {
     public var id: String { recordingId }
 
@@ -119,9 +119,21 @@ public struct RecordingDTO: Codable, Sendable, Identifiable, Equatable {
     public let resolution: String
     public let tags: [String]
 
-    /// Parses the recording start ISO-8601 timestamp into a `Date`.
-    public var startDate: Date? {
-        ISO8601TimestampParser.parse(timestamp)
+    /// Parsed start date cached once at decode/init time instead of re-allocating formatters during SwiftUI renders.
+    public let startDate: Date?
+    /// Preformatted UTC date-time label (`yyyy-MM-dd HH:mm UTC`) for fast sidebar & table row rendering.
+    public let formattedTimestampLabel: String
+
+    private enum CodingKeys: String, CodingKey {
+        case recordingId = "recording_id"
+        case filename
+        case timestamp
+        case cameraId = "camera_id"
+        case locationTag = "location_tag"
+        case durationS = "duration_s"
+        case fps
+        case resolution
+        case tags
     }
 
     public init(
@@ -144,19 +156,46 @@ public struct RecordingDTO: Codable, Sendable, Identifiable, Equatable {
         self.fps = fps
         self.resolution = resolution
         self.tags = tags
+        let parsed = OviusFormat.parseISODate(timestamp)
+        self.startDate = parsed
+        self.formattedTimestampLabel = parsed.map(OviusFormat.utcDateTime) ?? timestamp
     }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        recordingId = try container.decode(String.self, forKey: .recordingId)
-        filename = try container.decode(String.self, forKey: .filename)
-        timestamp = try container.decode(String.self, forKey: .timestamp)
-        cameraId = try container.decode(String.self, forKey: .cameraId)
-        locationTag = try container.decode(String.self, forKey: .locationTag)
-        durationS = try container.decode(Double.self, forKey: .durationS)
-        fps = try container.decode(Double.self, forKey: .fps)
-        resolution = try container.decode(String.self, forKey: .resolution)
-        tags = try container.decodeIfPresent([String].self, forKey: .tags) ?? []
+        let recordingId = try container.decode(String.self, forKey: .recordingId)
+        let filename = try container.decode(String.self, forKey: .filename)
+        let timestamp = try container.decode(String.self, forKey: .timestamp)
+        let cameraId = try container.decode(String.self, forKey: .cameraId)
+        let locationTag = try container.decode(String.self, forKey: .locationTag)
+        let durationS = try container.decode(Double.self, forKey: .durationS)
+        let fps = try container.decode(Double.self, forKey: .fps)
+        let resolution = try container.decode(String.self, forKey: .resolution)
+        let tags = try container.decodeIfPresent([String].self, forKey: .tags) ?? []
+        self.init(
+            recordingId: recordingId,
+            filename: filename,
+            timestamp: timestamp,
+            cameraId: cameraId,
+            locationTag: locationTag,
+            durationS: durationS,
+            fps: fps,
+            resolution: resolution,
+            tags: tags
+        )
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(recordingId, forKey: .recordingId)
+        try container.encode(filename, forKey: .filename)
+        try container.encode(timestamp, forKey: .timestamp)
+        try container.encode(cameraId, forKey: .cameraId)
+        try container.encode(locationTag, forKey: .locationTag)
+        try container.encode(durationS, forKey: .durationS)
+        try container.encode(fps, forKey: .fps)
+        try container.encode(resolution, forKey: .resolution)
+        try container.encode(tags, forKey: .tags)
     }
 }
 
@@ -169,6 +208,28 @@ public struct ScoopTimingDTO: Codable, Sendable, Equatable, Identifiable {
     public let startS: Double
     public let dumpS: Double
     public let endS: Double
+
+    private enum CodingKeys: String, CodingKey {
+        case scoopNumber = "scoop_number"
+        case excavatorSegmentId = "excavator_segment_id"
+        case startS = "start_s"
+        case dumpS = "dump_s"
+        case endS = "end_s"
+    }
+
+    public init(
+        scoopNumber: Int,
+        excavatorSegmentId: String,
+        startS: Double,
+        dumpS: Double,
+        endS: Double
+    ) {
+        self.scoopNumber = scoopNumber
+        self.excavatorSegmentId = excavatorSegmentId
+        self.startS = startS
+        self.dumpS = dumpS
+        self.endS = endS
+    }
 }
 
 /// Discrete hauler loading visit from `ovius-haul-cycle`.
@@ -190,6 +251,55 @@ public struct HaulCycleDTO: Codable, Sendable, Identifiable, Equatable {
     public let scoops: [ScoopTimingDTO]?
     public let truckSegments: [String]?
 
+    private enum CodingKeys: String, CodingKey {
+        case recordingId = "recording_id"
+        case cycleId = "cycle_id"
+        case excavatorId = "excavator_id"
+        case excavatorSortKey = "excavator_sort_key"
+        case truckLabel = "truck_label"
+        case cycleStatus = "cycle_status"
+        case tArriveS = "t_arrive_s"
+        case tSpotS = "t_spot_s"
+        case tLoadStartS = "t_load_start_s"
+        case tLoadEndS = "t_load_end_s"
+        case tDepartS = "t_depart_s"
+        case queueTimeS = "queue_time_s"
+        case scoops
+        case truckSegments = "truck_segments"
+    }
+
+    public init(
+        recordingId: String,
+        cycleId: String,
+        excavatorId: String,
+        excavatorSortKey: String?,
+        truckLabel: String,
+        cycleStatus: String,
+        tArriveS: Double?,
+        tSpotS: Double?,
+        tLoadStartS: Double?,
+        tLoadEndS: Double?,
+        tDepartS: Double?,
+        queueTimeS: Double?,
+        scoops: [ScoopTimingDTO]?,
+        truckSegments: [String]?
+    ) {
+        self.recordingId = recordingId
+        self.cycleId = cycleId
+        self.excavatorId = excavatorId
+        self.excavatorSortKey = excavatorSortKey
+        self.truckLabel = truckLabel
+        self.cycleStatus = cycleStatus
+        self.tArriveS = tArriveS
+        self.tSpotS = tSpotS
+        self.tLoadStartS = tLoadStartS
+        self.tLoadEndS = tLoadEndS
+        self.tDepartS = tDepartS
+        self.queueTimeS = queueTimeS
+        self.scoops = scoops
+        self.truckSegments = truckSegments
+    }
+
     /// Typed representation of `cycleStatus`, or `nil` for unrecognized values.
     public var typedStatus: CycleStatus? {
         CycleStatus(rawValue: cycleStatus)
@@ -210,6 +320,43 @@ public struct StateSegmentDTO: Codable, Sendable, Identifiable, Equatable {
     public let startS: Double
     public let endS: Double
     public let confidence: Double
+
+    private enum CodingKeys: String, CodingKey {
+        case segmentId = "segment_id"
+        case recordingId = "recording_id"
+        case cycleId = "cycle_id"
+        case cycleSortKey = "cycle_sort_key"
+        case machineId = "machine_id"
+        case scoopNumber = "scoop_number"
+        case state
+        case startS = "start_s"
+        case endS = "end_s"
+        case confidence
+    }
+
+    public init(
+        segmentId: String,
+        recordingId: String,
+        cycleId: String,
+        cycleSortKey: String?,
+        machineId: String,
+        scoopNumber: Int?,
+        state: String,
+        startS: Double,
+        endS: Double,
+        confidence: Double
+    ) {
+        self.segmentId = segmentId
+        self.recordingId = recordingId
+        self.cycleId = cycleId
+        self.cycleSortKey = cycleSortKey
+        self.machineId = machineId
+        self.scoopNumber = scoopNumber
+        self.state = state
+        self.startS = startS
+        self.endS = endS
+        self.confidence = confidence
+    }
 
     /// Typed representation of `state`, or `nil` for unrecognized values.
     public var typedState: MachineState? {
@@ -233,6 +380,14 @@ public struct BBoxTemplateItemDTO: Codable, Sendable, Identifiable, Equatable {
     public let timestamp: String?
     public let bboxArtifactUri: String
     public let presignedUrl: String?
+
+    private enum CodingKeys: String, CodingKey {
+        case recordingId = "recording_id"
+        case cameraId = "camera_id"
+        case timestamp
+        case bboxArtifactUri = "bbox_artifact_uri"
+        case presignedUrl = "presigned_url"
+    }
 }
 
 /// Future CloudFront video stream pointer returned by `GET /api/v1/videos`.
@@ -248,6 +403,18 @@ public struct VideoTemplateItemDTO: Codable, Sendable, Identifiable, Equatable {
     public let resolution: String?
     public let streamUrl: String
     public let signedCookiesRequired: Bool
+
+    private enum CodingKeys: String, CodingKey {
+        case recordingId = "recording_id"
+        case cameraId = "camera_id"
+        case filename
+        case timestamp
+        case durationS = "duration_s"
+        case fps
+        case resolution
+        case streamUrl = "stream_url"
+        case signedCookiesRequired = "signed_cookies_required"
+    }
 }
 
 // MARK: - API Response Envelopes
@@ -261,6 +428,34 @@ public struct PaginationDTO: Codable, Sendable, Equatable {
     public let haulCyclesCount: Int?
     public let stateSegmentsCount: Int?
     public let nextToken: String?
+
+    private enum CodingKeys: String, CodingKey {
+        case count
+        case totalMatchedRecordings = "total_matched_recordings"
+        case matchedRecordings = "matched_recordings"
+        case recordingsCount = "recordings_count"
+        case haulCyclesCount = "haul_cycles_count"
+        case stateSegmentsCount = "state_segments_count"
+        case nextToken = "next_token"
+    }
+
+    public init(
+        count: Int?,
+        totalMatchedRecordings: Int?,
+        matchedRecordings: Int?,
+        recordingsCount: Int?,
+        haulCyclesCount: Int?,
+        stateSegmentsCount: Int?,
+        nextToken: String?
+    ) {
+        self.count = count
+        self.totalMatchedRecordings = totalMatchedRecordings
+        self.matchedRecordings = matchedRecordings
+        self.recordingsCount = recordingsCount
+        self.haulCyclesCount = haulCyclesCount
+        self.stateSegmentsCount = stateSegmentsCount
+        self.nextToken = nextToken
+    }
 }
 
 /// Response from `GET /api/v1/metrics`.
@@ -270,6 +465,28 @@ public struct MetricsBundleResponse: Codable, Sendable, Equatable {
     public let haulCycles: [HaulCycleDTO]
     public let stateSegments: [StateSegmentDTO]
     public let pagination: PaginationDTO
+
+    private enum CodingKeys: String, CodingKey {
+        case queryType = "query_type"
+        case recordings
+        case haulCycles = "haul_cycles"
+        case stateSegments = "state_segments"
+        case pagination
+    }
+
+    public init(
+        queryType: String,
+        recordings: [RecordingDTO],
+        haulCycles: [HaulCycleDTO],
+        stateSegments: [StateSegmentDTO],
+        pagination: PaginationDTO
+    ) {
+        self.queryType = queryType
+        self.recordings = recordings
+        self.haulCycles = haulCycles
+        self.stateSegments = stateSegments
+        self.pagination = pagination
+    }
 }
 
 /// Response from `GET /api/v1/metrics/recordings`.
@@ -277,6 +494,12 @@ public struct RecordingsPageResponse: Codable, Sendable, Equatable {
     public let queryType: String
     public let recordings: [RecordingDTO]
     public let pagination: PaginationDTO
+
+    private enum CodingKeys: String, CodingKey {
+        case queryType = "query_type"
+        case recordings
+        case pagination
+    }
 }
 
 /// Response from `GET /api/v1/metrics/cycles`.
@@ -284,6 +507,12 @@ public struct CyclesPageResponse: Codable, Sendable, Equatable {
     public let queryType: String
     public let haulCycles: [HaulCycleDTO]
     public let pagination: PaginationDTO
+
+    private enum CodingKeys: String, CodingKey {
+        case queryType = "query_type"
+        case haulCycles = "haul_cycles"
+        case pagination
+    }
 }
 
 /// Response from `GET /api/v1/metrics/segments`.
@@ -291,6 +520,12 @@ public struct SegmentsPageResponse: Codable, Sendable, Equatable {
     public let queryType: String
     public let stateSegments: [StateSegmentDTO]
     public let pagination: PaginationDTO
+
+    private enum CodingKeys: String, CodingKey {
+        case queryType = "query_type"
+        case stateSegments = "state_segments"
+        case pagination
+    }
 }
 
 /// Generic template response envelope for `GET /api/v1/bboxes` and `GET /api/v1/videos`.
@@ -299,6 +534,13 @@ public struct TemplatePageResponse<Item: Codable & Sendable & Equatable>: Codabl
     public let status: String
     public let items: [Item]
     public let pagination: PaginationDTO
+
+    private enum CodingKeys: String, CodingKey {
+        case queryType = "query_type"
+        case status
+        case items
+        case pagination
+    }
 }
 
 /// Backend error body returned on HTTP 4xx/5xx responses.
@@ -306,20 +548,4 @@ public struct APIErrorResponse: Codable, Sendable, Equatable {
     public let error: String
     public let message: String?
     public let code: String?
-}
-
-// MARK: - Timestamp Utilities
-
-private enum ISO8601TimestampParser {
-    static func parse(_ raw: String) -> Date? {
-        let withFractional = ISO8601DateFormatter()
-        withFractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        if let date = withFractional.date(from: raw) {
-            return date
-        }
-
-        let standard = ISO8601DateFormatter()
-        standard.formatOptions = [.withInternetDateTime]
-        return standard.date(from: raw)
-    }
 }

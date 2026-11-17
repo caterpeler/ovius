@@ -45,7 +45,7 @@ public struct SectionEditorSheet: View {
     }
 
     public var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: OviusDesign.Spacing.section) {
             Text(existingSection == nil ? "New Section" : "Edit Section Selectors")
                 .font(.title3.bold())
 
@@ -68,31 +68,17 @@ public struct SectionEditorSheet: View {
 
             HStack {
                 Spacer()
-                Button("Cancel") {
-                    dismiss()
-                }
-                .keyboardShortcut(.cancelAction)
+                Button("Cancel", action: closeSheet)
+                    .keyboardShortcut(.cancelAction)
 
-                Button("Save Section") {
-                    onSave(
-                        sectionId,
-                        clusterId,
-                        name,
-                        cameraIdsText,
-                        locationTagsText,
-                        customTagsText,
-                        filenamesText,
-                        assignedTrucksText
-                    )
-                    dismiss()
-                }
-                .keyboardShortcut(.defaultAction)
-                .buttonStyle(.borderedProminent)
-                .disabled(sectionId.trimmingCharacters(in: .whitespaces).isEmpty || name.trimmingCharacters(in: .whitespaces).isEmpty)
+                Button("Save Section", action: saveAndClose)
+                    .keyboardShortcut(.defaultAction)
+                    .buttonStyle(.borderedProminent)
+                    .disabled(sectionId.trimmingCharacters(in: .whitespaces).isEmpty || name.trimmingCharacters(in: .whitespaces).isEmpty)
             }
         }
-        .padding(20)
-        .frame(width: 520)
+        .padding(OviusDesign.Spacing.page)
+        .frame(minWidth: 480, idealWidth: 540, maxWidth: 640)
         .onAppear {
             if let existingSection {
                 sectionId = existingSection.sectionId
@@ -106,5 +92,23 @@ public struct SectionEditorSheet: View {
                 sectionId = "SEC_\(UUID().uuidString.prefix(6).uppercased())"
             }
         }
+    }
+
+    private func closeSheet() {
+        dismiss()
+    }
+
+    private func saveAndClose() {
+        onSave(
+            sectionId,
+            clusterId,
+            name,
+            cameraIdsText,
+            locationTagsText,
+            customTagsText,
+            filenamesText,
+            assignedTrucksText
+        )
+        dismiss()
     }
 }

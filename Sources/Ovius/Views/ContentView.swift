@@ -1,34 +1,51 @@
 import SwiftUI
 
-/// Root `NavigationSplitView` coordinating Dashboard, Clusters & Sections, Diagnostic Rules, and Settings.
+/// Root native 3-column `NavigationSplitView` coordinating App Sidebar, Content Selector Column,
+/// and Main Detail Workspace.
 public struct ContentView: View {
-    @State private var selectedTab: AppSidebarTab = .dashboard
+    @State private var selectedTab: AppSidebarTab? = .dashboard
+    @State private var selectedSettingsCategory: SettingsCategory? = .endpoint
     @State private var dashboardViewModel = DashboardViewModel()
     @State private var clustersViewModel = ClustersViewModel()
-    @State private var diagnosticsCatalogViewModel = DiagnosticsCatalogViewModel()
     @State private var settingsViewModel = SettingsViewModel()
 
     public init() {}
 
+    private var activeTab: AppSidebarTab {
+        selectedTab ?? .dashboard
+    }
+
+    private var activeSettingsCategory: SettingsCategory {
+        selectedSettingsCategory ?? .endpoint
+    }
+
     public var body: some View {
         NavigationSplitView {
-            List(AppSidebarTab.allCases, selection: $selectedTab) { tab in
-                Label(tab.title, systemImage: tab.systemImage)
-                    .tag(tab)
+            SidebarNavigationColumnView(selectedTab: $selectedTab)
+        } content: {
+            switch activeTab {
+            case .dashboard:
+                RecordingSelectorSidebarView(viewModel: dashboardViewModel)
+            case .clusters:
+                ClusterSectionListView(viewModel: clustersViewModel)
+            case .settings:
+                SettingsCategoryListView(selectedCategory: $selectedSettingsCategory)
             }
-            .listStyle(.sidebar)
-            .navigationSplitViewColumnWidth(min: 190, ideal: 220, max: 270)
         } detail: {
-            switch selectedTab {
+            switch activeTab {
             case .dashboard:
                 DashboardView(viewModel: dashboardViewModel)
             case .clusters:
                 ClustersView(viewModel: clustersViewModel)
-            case .diagnosticsCatalog:
-                DiagnosticsCatalogView(viewModel: diagnosticsCatalogViewModel)
             case .settings:
-                SettingsView(viewModel: settingsViewModel)
+                SettingsView(
+                    viewModel: settingsViewModel,
+                    category: activeSettingsCategory,
+                    onClearTelemetryCaches: dashboardViewModel.clearTelemetryCaches
+                )
             }
         }
+        .tint(Tokens.primary.color)
+        .appAccent(Tokens.primary)
     }
 }

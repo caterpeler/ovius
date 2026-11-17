@@ -20,7 +20,7 @@ public struct ClusterEditorSheet: View {
     }
 
     public var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: OviusDesign.Spacing.section) {
             Text(existingCluster == nil ? "New Cluster" : "Edit Cluster")
                 .font(.title3.bold())
 
@@ -34,22 +34,17 @@ public struct ClusterEditorSheet: View {
 
             HStack {
                 Spacer()
-                Button("Cancel") {
-                    dismiss()
-                }
-                .keyboardShortcut(.cancelAction)
+                Button("Cancel", action: closeSheet)
+                    .keyboardShortcut(.cancelAction)
 
-                Button("Save Cluster") {
-                    onSave(clusterId, name, tagsText)
-                    dismiss()
-                }
-                .keyboardShortcut(.defaultAction)
-                .buttonStyle(.borderedProminent)
-                .disabled(clusterId.trimmingCharacters(in: .whitespaces).isEmpty || name.trimmingCharacters(in: .whitespaces).isEmpty)
+                Button("Save Cluster", action: saveAndClose)
+                    .keyboardShortcut(.defaultAction)
+                    .buttonStyle(.borderedProminent)
+                    .disabled(clusterId.trimmingCharacters(in: .whitespaces).isEmpty || name.trimmingCharacters(in: .whitespaces).isEmpty)
             }
         }
-        .padding(20)
-        .frame(width: 440)
+        .padding(OviusDesign.Spacing.page)
+        .frame(minWidth: 420, idealWidth: 480, maxWidth: 580)
         .onAppear {
             if let existingCluster {
                 clusterId = existingCluster.clusterId
@@ -59,5 +54,14 @@ public struct ClusterEditorSheet: View {
                 clusterId = "CLUSTER_\(UUID().uuidString.prefix(6).uppercased())"
             }
         }
+    }
+
+    private func closeSheet() {
+        dismiss()
+    }
+
+    private func saveAndClose() {
+        onSave(clusterId, name, tagsText)
+        dismiss()
     }
 }
