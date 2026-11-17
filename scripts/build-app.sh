@@ -1,5 +1,5 @@
 #!/bin/bash
-# Builds build/Ovius.app: the release build, metrics.py and the built-in pipeline (pipeline/) beside it, signed for this Mac (ad hoc).
+# Builds build/Ovius.app: the release build, signed for this Mac (ad hoc).
 #   scripts/build-app.sh            then open build/Ovius.app, or copy it to /Applications
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -12,9 +12,6 @@ app="build/Ovius.app"
 rm -rf "$app"
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
 cp "$bin/Ovius" "$app/Contents/MacOS/Ovius"
-cp Sources/OviusCore/metrics.py "$app/Contents/Resources/metrics.py"
-cp -R Sources/OviusCore/pipeline "$app/Contents/Resources/pipeline"
-find "$app/Contents/Resources/pipeline" -name "__pycache__" -type d -prune -exec rm -rf {} +
 cat > "$app/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
