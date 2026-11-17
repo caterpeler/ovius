@@ -1,8 +1,10 @@
 import SwiftUI
 
-/// Layer 3 of the Data Explorer: Specific cycle phase summary + sortable machine `StateSegmentDTO`
-/// intervals (Rule 4.3 uncertain highlighting) + embedded `ScoopTimingDTO` passes.
+/// Layer 3 of the Data Explorer: Cycle phase summary + native inset sortable machine `StateSegmentDTO`
+/// intervals + embedded `ScoopTimingDTO` passes.
 public struct StateTimingExplorerTableView: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     public let cycle: CycleExplorerRow
     public let segmentRows: [StateTimingExplorerRow]
     public let scoopRows: [ScoopTimingExplorerRow]
@@ -11,9 +13,7 @@ public struct StateTimingExplorerTableView: View {
     @State private var sortOrder: [KeyPathComparator<StateTimingExplorerRow>] = [
         .init(\.startS, order: .forward)
     ]
-    @State private var scoopSortOrder: [KeyPathComparator<ScoopTimingExplorerRow>] = [
-        .init(\.scoopNumber, order: .forward)
-    ]
+    @State private var sortedSegmentRows: [StateTimingExplorerRow] = []
 
     public init(
         cycle: CycleExplorerRow,
@@ -27,42 +27,46 @@ public struct StateTimingExplorerTableView: View {
         self.isLoadingDrilldown = isLoadingDrilldown
     }
 
-    private var sortedSegmentRows: [StateTimingExplorerRow] {
-        segmentRows.sorted(using: sortOrder)
-    }
-
-    private var sortedScoopRows: [ScoopTimingExplorerRow] {
-        scoopRows.sorted(using: scoopSortOrder)
+    private func refreshSortedSegmentRows() {
+        sortedSegmentRows = segmentRows.sorted(using: sortOrder)
     }
 
     public var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            // Cycle Macro Phase Summary Strip
-            GroupBox {
-                HStack(spacing: 18) {
-                    phaseStat(title: "Cycle", value: cycle.cycleId)
-                    phaseStat(title: "Truck / Excavator", value: "\(cycle.truckLabel) / \(cycle.excavatorId)")
-                    phaseStat(title: "Queue", value: OviusFormat.duration(seconds: cycle.queueTimeS))
-                    phaseStat(title: "Spot", value: OviusFormat.duration(seconds: cycle.spotDurationS))
-                    phaseStat(title: "Load", value: OviusFormat.duration(seconds: cycle.loadDurationS))
-                    phaseStat(title: "Depart", value: OviusFormat.duration(seconds: cycle.departureLagS))
-                    phaseStat(title: "Total", value: OviusFormat.duration(seconds: cycle.totalCycleDurationS))
-                    phaseStat(title: "Payload", value: OviusFormat.volumeM3(cycle.payloadM3))
-                    Spacer()
-                }
+        VStack(alignment: .leading, spacing: OviusDesign.Spacing.standard) {
+            LazyVGrid(
+                columns: [GridItem(.adaptive(minimum: dynamicTypeSize.isAccessibilitySize ? 180 : 105), spacing: OviusDesign.Spacing.standard)],
+                alignment: .leading,
+                spacing: OviusDesign.Spacing.compact
+            ) {
+                phaseStat(title: "Cycle", value: cycle.cycleId)
+                phaseStat(title: "Truck / Excavator", value: "\(cycle.truckLabel) / \(cycle.excavatorId)")
+                phaseStat(title: "Queue", value: OviusFormat.duration(seconds: cycle.queueTimeS))
+                phaseStat(title: "Spot", value: OviusFormat.duration(seconds: cycle.spotDurationS))
+                phaseStat(title: "Load", value: OviusFormat.duration(seconds: cycle.loadDurationS))
+                phaseStat(title: "Depart", value: OviusFormat.duration(seconds: cycle.departureLagS))
+                phaseStat(title: "Total", value: OviusFormat.duration(seconds: cycle.totalCycleDurationS))
+                phaseStat(title: "Scoops", value: "\(cycle.scoopCount)")
             }
+            .padding(OviusDesign.Spacing.standard)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .panelSurface(
+                background: Tokens.surface,
+                borderColor: Tokens.border.opacity(0.65),
+                radius: OviusDesign.Radius.card
+            )
 
             if isLoadingDrilldown && segmentRows.isEmpty {
                 SectionLoadingPlaceholderView(
                     title: "Loading Machine State Timings…",
                     subtitle: "Fetching state segments and embedded bucket scoop passes.",
-                    minHeight: 220
+                    minHeight: 140
                 )
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                // Chronological State Segments Table
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: OviusDesign.Spacing.tight) {
                     Text("Machine State Timings (\(segmentRows.count))")
                         .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Tokens.text)
 
                     if segmentRows.isEmpty {
                         ContentUnavailableView(
@@ -70,123 +74,112 @@ public struct StateTimingExplorerTableView: View {
                             systemImage: "timeline.selection",
                             description: Text("Adjust the Role, State, Confidence, or Search filters above.")
                         )
-                        .frame(maxWidth: .infinity, minHeight: 180)
+                        .frame(maxWidth: .infinity, minHeight: 140, maxHeight: .infinity)
+                        .panelSurface(
+                            background: Tokens.surface,
+                            borderColor: Tokens.border.opacity(0.65),
+                            radius: OviusDesign.Radius.card
+                        )
                     } else {
                         Table(sortedSegmentRows, sortOrder: $sortOrder) {
                             TableColumn("Machine", value: \.machineId) { row in
-                                Text(row.machineId).font(.caption.weight(.semibold))
+                                Text(row.machineId)
+                                    .font(.callout)
+                                    .foregroundStyle(Tokens.text)
+                            }
+                            .width(min: 55, ideal: 70)
+
+                            TableColumn("Role", value: \.machineRole) { row in
+                                Text(row.machineRole)
+                                    .font(.footnote)
+                                    .foregroundStyle(Tokens.text2)
                             }
                             .width(min: 60, ideal: 75)
 
-                            TableColumn("Role", value: \.machineRole) { row in
-                                Text(row.machineRole).font(.caption)
-                            }
-                            .width(min: 65, ideal: 80)
-
                             TableColumn("State", value: \.state) { row in
                                 Text(row.state)
-                                    .font(.caption.monospaced())
+                                    .font(.footnote.monospaced())
                                     .foregroundStyle(color(for: row.typedState))
                             }
                             .width(min: 105, ideal: 120)
 
-                            TableColumn("UTC Start", value: \.utcClockStart) { row in
-                                Text(row.utcClockStart).font(.caption.monospacedDigit())
-                            }
-                            .width(min: 85, ideal: 95)
-
                             TableColumn("Start (s)", value: \.startS) { row in
-                                Text(String(format: "%.2f", row.startS)).font(.caption.monospacedDigit())
+                                Text(String(format: "%.2f", row.startS))
+                                    .font(.footnote.monospacedDigit())
+                                    .foregroundStyle(Tokens.text2)
                             }
-                            .width(min: 70, ideal: 80)
+                            .width(min: 65, ideal: 78)
 
                             TableColumn("End (s)", value: \.endS) { row in
-                                Text(String(format: "%.2f", row.endS)).font(.caption.monospacedDigit())
+                                Text(String(format: "%.2f", row.endS))
+                                    .font(.footnote.monospacedDigit())
+                                    .foregroundStyle(Tokens.text2)
                             }
-                            .width(min: 70, ideal: 80)
+                            .width(min: 65, ideal: 78)
 
                             TableColumn("Duration", value: \.durationS) { row in
-                                Text(OviusFormat.duration(seconds: row.durationS)).font(.caption.monospacedDigit())
+                                Text(OviusFormat.duration(seconds: row.durationS))
+                                    .font(.footnote.monospacedDigit())
+                                    .foregroundStyle(Tokens.text)
                             }
-                            .width(min: 70, ideal: 80)
+                            .width(min: 65, ideal: 78)
 
                             TableColumn("Confidence", value: \.confidence) { row in
-                                Text(OviusFormat.percentage(row.confidence))
-                                    .font(.caption.monospacedDigit())
-                                    .foregroundStyle(row.isUncertain ? Color.orange : Color.secondary)
+                                if row.isUncertain {
+                                    Label(OviusFormat.percentage(row.confidence), systemImage: "exclamationmark.triangle.fill")
+                                        .font(.footnote.monospacedDigit())
+                                        .foregroundStyle(Tokens.warning.text)
+                                } else {
+                                    Text(OviusFormat.percentage(row.confidence))
+                                        .font(.footnote.monospacedDigit())
+                                        .foregroundStyle(Tokens.text2)
+                                }
                             }
-                            .width(min: 75, ideal: 85)
+                            .width(min: 78, ideal: 90)
                         }
-                        .frame(minHeight: 240, maxHeight: 340)
+                        .tableStyle(.inset(alternatesRowBackgrounds: true))
+                        .frame(maxWidth: .infinity, minHeight: 120, maxHeight: .infinity)
+                        .clipShape(.rect(cornerRadius: OviusDesign.Radius.card, style: .continuous))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: OviusDesign.Radius.card, style: .continuous)
+                                .strokeBorder(Tokens.border.opacity(0.65), lineWidth: 1)
+                        }
                     }
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
 
-                // Embedded Scoop Pass Timings Table
                 if !scoopRows.isEmpty {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Embedded Bucket Scoop Passes (\(scoopRows.count))")
-                            .font(.subheadline.weight(.semibold))
-
-                        Table(sortedScoopRows, sortOrder: $scoopSortOrder) {
-                            TableColumn("Scoop #", value: \.scoopNumber) { row in
-                                Text("#\(row.scoopNumber)").font(.caption.monospacedDigit().weight(.medium))
-                            }
-                            .width(min: 60, ideal: 70)
-
-                            TableColumn("Excavator Segment ID", value: \.excavatorSegmentId) { row in
-                                Text(row.excavatorSegmentId).font(.caption.monospaced()).lineLimit(1)
-                            }
-                            .width(min: 180, ideal: 240)
-
-                            TableColumn("Start (s)", value: \.startS) { row in
-                                Text(String(format: "%.2f", row.startS)).font(.caption.monospacedDigit())
-                            }
-                            .width(min: 75, ideal: 90)
-
-                            TableColumn("Dump (s)", value: \.dumpS) { row in
-                                Text(String(format: "%.2f", row.dumpS)).font(.caption.monospacedDigit())
-                            }
-                            .width(min: 75, ideal: 90)
-
-                            TableColumn("End (s)", value: \.endS) { row in
-                                Text(String(format: "%.2f", row.endS)).font(.caption.monospacedDigit())
-                            }
-                            .width(min: 75, ideal: 90)
-
-                            TableColumn("Pass Duration", value: \.durationS) { row in
-                                Text(OviusFormat.duration(seconds: row.durationS)).font(.caption.monospacedDigit())
-                            }
-                            .width(min: 85, ideal: 95)
-
-                            TableColumn("Inter-Scoop Gap", value: \.interScoopGapSortKey) { row in
-                                Text(OviusFormat.duration(seconds: row.interScoopGapS))
-                                    .font(.caption.monospacedDigit())
-                                    .foregroundStyle(.secondary)
-                            }
-                            .width(min: 95, ideal: 110)
-                        }
-                        .frame(minHeight: 160, maxHeight: 240)
-                    }
+                    StateScoopPassesTableView(rows: scoopRows)
                 }
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .onAppear { refreshSortedSegmentRows() }
+        .onChange(of: segmentRows) { _, _ in refreshSortedSegmentRows() }
+        .onChange(of: sortOrder) { _, _ in refreshSortedSegmentRows() }
     }
 
     private func phaseStat(title: String, value: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(title).font(.caption2).foregroundStyle(.secondary)
-            Text(value).font(.caption.weight(.semibold).monospacedDigit()).lineLimit(1)
+            Text(title)
+                .font(.caption)
+                .foregroundStyle(Tokens.text2)
+            Text(value)
+                .font(.footnote.monospacedDigit().weight(.semibold))
+                .foregroundStyle(Tokens.text)
+                .lineLimit(1)
         }
+        .accessibilityElement(children: .combine)
     }
 
     private func color(for state: MachineState?) -> Color {
         switch state {
-        case .loadingScoop, .beingLoaded: return .blue
-        case .facePrep: return .teal
-        case .queuingIdle: return .orange
-        case .spotting, .departing: return .indigo
-        case .idle: return .red
-        case .outOfFrame, nil: return .gray
+        case .loadingScoop, .beingLoaded: Tokens.info.text
+        case .facePrep: Tokens.teal.text
+        case .queuingIdle: Tokens.warning.text
+        case .spotting, .departing: Tokens.indigo.text
+        case .idle: Tokens.danger.text
+        case .outOfFrame, nil: Tokens.text3
         }
     }
 }

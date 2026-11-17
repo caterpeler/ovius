@@ -1,121 +1,113 @@
 import Foundation
 
 /// Pure client-side builders producing Layer 1, Layer 2, and Layer 3 Data Explorer rows
-/// directly from filtered raw telemetry DTOs.
+/// directly from recording-level telemetry DTOs.
 public enum DataExplorerBuilder {
 
-    /// Layer 1: Aggregates active-window `haul_cycles` per `RecordingDTO`.
+    /// Layer 1: Aggregates `haul_cycles` per selected `RecordingDTO`.
     public static func buildRecordingRows(
         recordings: [RecordingDTO],
         sectionNamesByRecordingId: [String: (sectionId: String, sectionName: String)],
-        cycles: [HaulCycleDTO],
-        todStartS: Double?,
-        todEndS: Double?,
-        todBaseMinuteUTC: Int? = nil,
-        config: TelemetryCalculationConfig
+        cycles: [HaulCycleDTO]
     ) -> [RecordingExplorerRow] {
-        var boundsByRec: [String: (lo: Double, hi: Double)] = [:]
-        if todStartS != nil || todEndS != nil {
-            for rec in recordings {
-                boundsByRec[rec.recordingId] = TelemetryMetricsCalculator.clipBounds(
-                    for: rec,
-                    todStartS: todStartS,
-                    todEndS: todEndS,
-                    todBaseMinuteUTC: todBaseMinuteUTC
-                )
-            }
-        }
-        let filteredCycles = TelemetryMetricsCalculator.filterCycles(
-            cycles,
-            todStartS: todStartS,
-            todEndS: todEndS,
-            boundsByRecordingId: boundsByRec
-        )
-        let cyclesByRec = Dictionary(grouping: filteredCycles, by: \.recordingId)
+        let cyclesByRec = Dictionary(grouping: cycles, by: \.recordingId)
 
         return recordings.map { rec in
-            let recCycles = cyclesByRec[rec.recordingId] ?? []
-            let complete = recCycles.filter { $0.cycleStatus == CycleStatus.complete.rawValue }
-            let incompleteCount = recCycles.count - complete.count
-            let effHours = TelemetryMetricsCalculator.computeEffectiveCameraHours(
+            buildRecordingRow(
                 for: rec,
-                todStartS: todStartS,
-                todEndS: todEndS,
-                todBaseMinuteUTC: todBaseMinuteUTC
-            )
-
-            let volume = Double(complete.count) * config.meanPayloadM3
-            let rate = effHours > 0 ? volume / effHours : 0.0
-            let secInfo = sectionNamesByRecordingId[rec.recordingId] ?? ("UNASSIGNED", "Unassigned")
-
-            return RecordingExplorerRow(
-                recordingId: rec.recordingId,
-                filename: rec.filename,
-                timestamp: rec.timestamp,
-                startDate: OviusFormat.parseISODate(rec.timestamp) ?? .distantPast,
-                sectionId: secInfo.sectionId,
-                sectionName: secInfo.sectionName,
-                cameraId: rec.cameraId,
-                locationTag: rec.locationTag,
-                resolution: rec.resolution,
-                fps: rec.fps,
-                durationS: rec.durationS,
-                effectiveWindowHours: effHours,
-                totalCycleCount: recCycles.count,
-                completeCycleCount: complete.count,
-                incompleteCycleCount: incompleteCount,
-                totalVolumeM3: volume,
-                volumetricRateM3Hr: rate,
-                avgQueueTimeS: mean(complete.compactMap(TelemetryMetricsCalculator.extractQueueS)),
-                avgSpotTimeS: mean(complete.compactMap(TelemetryMetricsCalculator.extractSpotS)),
-                avgLoadDurationS: mean(complete.compactMap(TelemetryMetricsCalculator.extractLoadS)),
-                avgDepartureLagS: mean(complete.compactMap(TelemetryMetricsCalculator.extractDepartS)),
-                avgTotalCycleS: mean(complete.compactMap(TelemetryMetricsCalculator.extractTotalCycleS)),
-                excavatorCount: Set(recCycles.map(\.excavatorId)).count,
-                truckCount: Set(recCycles.map(\.truckLabel)).count
+                sectionInfo: sectionNamesByRecordingId[rec.recordingId],
+                cycles: cyclesByRec[rec.recordingId] ?? []
             )
         }
         .sorted { $0.startDate > $1.startDate }
     }
 
-    /// Layer 2: Builds cycle rows for an opened `RecordingDTO`, enforcing Business Rule 4.2 & Rule 4.3.
+    /// Builds and aggregates a single Layer 1 Data Explorer row for `rec` so `DashboardViewModel`
+    /// can pre-compute and cache each recording's row once on arrival.
+    public static func buildRecordingRow(
+        for rec: RecordingDTO,
+        sectionInfo: (sectionId: String, sectionName: String)?,
+        cycles recCycles: [HaulCycleDTO]
+    ) -> RecordingExplorerRow {
+        var completeCount = 0
+        var passCounts: [Double] = []
+        var queueTimes: [Double] = []
+        var spotTimes: [Double] = []
+        var loadDurations: [Double] = []
+        var departLags: [Double] = []
+        var totalCycleDurations: [Double] = []
+        var excavators: Set<String> = []
+        var trucks: Set<String> = []
+
+        passCounts.reserveCapacity(recCycles.count)
+        queueTimes.reserveCapacity(recCycles.count)
+        spotTimes.reserveCapacity(recCycles.count)
+        loadDurations.reserveCapacity(recCycles.count)
+        departLags.reserveCapacity(recCycles.count)
+        totalCycleDurations.reserveCapacity(recCycles.count)
+
+        for cyc in recCycles {
+            excavators.insert(cyc.excavatorId)
+            trucks.insert(cyc.truckLabel)
+
+            guard cyc.cycleStatus == CycleStatus.complete.rawValue else { continue }
+            completeCount += 1
+
+            if let scoops = cyc.scoops, !scoops.isEmpty {
+                passCounts.append(Double(scoops.count))
+            }
+            if let q = TelemetryMetricsCalculator.extractQueueS(cyc) { queueTimes.append(q) }
+            if let s = TelemetryMetricsCalculator.extractSpotS(cyc) { spotTimes.append(s) }
+            if let l = TelemetryMetricsCalculator.extractLoadS(cyc) { loadDurations.append(l) }
+            if let d = TelemetryMetricsCalculator.extractDepartS(cyc) { departLags.append(d) }
+            if let t = TelemetryMetricsCalculator.extractTotalCycleS(cyc) { totalCycleDurations.append(t) }
+        }
+
+        let resolvedSec = sectionInfo ?? ("UNASSIGNED", "Unassigned")
+        let startDate = rec.startDate ?? OviusFormat.parseISODate(rec.timestamp) ?? .distantPast
+        let formattedTimestamp = rec.formattedTimestampLabel.isEmpty
+            ? OviusFormat.utcDateTime(startDate)
+            : rec.formattedTimestampLabel
+
+        return RecordingExplorerRow(
+            recordingId: rec.recordingId,
+            filename: rec.filename,
+            timestamp: rec.timestamp,
+            startDate: startDate,
+            formattedTimestamp: formattedTimestamp,
+            sectionId: resolvedSec.sectionId,
+            sectionName: resolvedSec.sectionName,
+            cameraId: rec.cameraId,
+            locationTag: rec.locationTag,
+            resolution: rec.resolution,
+            fps: rec.fps,
+            durationS: rec.durationS,
+            totalCycleCount: recCycles.count,
+            completeCycleCount: completeCount,
+            incompleteCycleCount: recCycles.count - completeCount,
+            avgPassesPerCycle: TelemetryMetricsCalculator.mean(passCounts),
+            avgQueueTimeS: TelemetryMetricsCalculator.mean(queueTimes),
+            avgSpotTimeS: TelemetryMetricsCalculator.mean(spotTimes),
+            avgLoadDurationS: TelemetryMetricsCalculator.mean(loadDurations),
+            avgDepartureLagS: TelemetryMetricsCalculator.mean(departLags),
+            avgTotalCycleS: TelemetryMetricsCalculator.mean(totalCycleDurations),
+            excavatorCount: excavators.count,
+            truckCount: trucks.count
+        )
+    }
+
+    /// Layer 2: Builds cycle rows for an opened recording, enforcing Business Rule 4.2 & Rule 4.3.
     public static func buildCycleRows(
-        recording: RecordingDTO? = nil,
         cycles: [HaulCycleDTO],
         segments: [StateSegmentDTO],
-        todStartS: Double?,
-        todEndS: Double?,
-        todBaseMinuteUTC: Int? = nil,
-        config: TelemetryCalculationConfig
+        uncertaintyCutoff: Double = TelemetryMetricsCalculator.defaultUncertaintyCutoff
     ) -> [CycleExplorerRow] {
-        var boundsByRec: [String: (lo: Double, hi: Double)] = [:]
-        if let recording, (todStartS != nil || todEndS != nil) {
-            boundsByRec[recording.recordingId] = TelemetryMetricsCalculator.clipBounds(
-                for: recording,
-                todStartS: todStartS,
-                todEndS: todEndS,
-                todBaseMinuteUTC: todBaseMinuteUTC
-            )
-        }
-        let filteredCycles = TelemetryMetricsCalculator.filterCycles(
-            cycles,
-            todStartS: todStartS,
-            todEndS: todEndS,
-            boundsByRecordingId: boundsByRec
-        )
-        let clippedSegments = TelemetryMetricsCalculator.clipSegments(
-            segments,
-            todStartS: todStartS,
-            todEndS: todEndS,
-            boundsByRecordingId: boundsByRec
-        )
-
         var uncertainCounts: [String: Int] = [:]
-        for seg in clippedSegments where seg.confidence < config.uncertaintyConfidenceCutoff {
+        for seg in segments where seg.confidence < uncertaintyCutoff {
             uncertainCounts[seg.cycleId, default: 0] += 1
         }
 
-        return filteredCycles
+        return cycles
             .sorted { ($0.tLoadStartS ?? $0.tArriveS ?? 0) < ($1.tLoadStartS ?? $1.tArriveS ?? 0) }
             .map { cycle in
                 let isComplete = cycle.cycleStatus == CycleStatus.complete.rawValue
@@ -137,7 +129,6 @@ public enum DataExplorerBuilder {
                     loadDurationS: TelemetryMetricsCalculator.extractLoadS(cycle) ?? 0,
                     departureLagS: TelemetryMetricsCalculator.extractDepartS(cycle) ?? 0,
                     totalCycleDurationS: totalDur,
-                    payloadM3: isComplete ? config.meanPayloadM3 : 0.0,
                     scoopCount: cycle.scoops?.count ?? 0,
                     uncertainSegmentCount: uncertainCounts[cycle.cycleId] ?? 0
                 )
@@ -145,49 +136,27 @@ public enum DataExplorerBuilder {
     }
 
     /// Layer 3: Builds specific machine `StateSegmentDTO` timing rows and embedded `ScoopTimingDTO` rows
-    /// for an opened cycle (`cycle_id` match plus overlapping excavator `NONE` intervals near the cycle window, respecting `[todStartS, todEndS]`).
+    /// for an opened cycle (`cycle_id` match plus overlapping excavator `NONE` intervals near the cycle window).
     public static func buildStateTimingRows(
-        recording: RecordingDTO,
         cycle: HaulCycleDTO,
         allRecordingSegments: [StateSegmentDTO],
-        todStartS: Double? = nil,
-        todEndS: Double? = nil,
-        todBaseMinuteUTC: Int? = nil,
-        config: TelemetryCalculationConfig
+        uncertaintyCutoff: Double = TelemetryMetricsCalculator.defaultUncertaintyCutoff
     ) -> (segments: [StateTimingExplorerRow], scoops: [ScoopTimingExplorerRow]) {
-        let baseDate = OviusFormat.parseISODate(recording.timestamp) ?? .now
         let cycleStart = [cycle.tArriveS, cycle.tSpotS, cycle.tLoadStartS].compactMap { $0 }.min() ?? 0
         let cycleEnd = [cycle.tDepartS, cycle.tLoadEndS].compactMap { $0 }.max() ?? cycleStart
-
-        var boundsByRec: [String: (lo: Double, hi: Double)] = [:]
-        if todStartS != nil || todEndS != nil {
-            boundsByRec[recording.recordingId] = TelemetryMetricsCalculator.clipBounds(
-                for: recording,
-                baseDate: baseDate,
-                todStartS: todStartS,
-                todEndS: todEndS,
-                todBaseMinuteUTC: todBaseMinuteUTC
-            )
-        }
-        let scopedRecordingSegments = TelemetryMetricsCalculator.clipSegments(
-            allRecordingSegments,
-            todStartS: todStartS,
-            todEndS: todEndS,
-            boundsByRecordingId: boundsByRec
-        )
 
         let truckSegIds = Set(cycle.truckSegments ?? [])
         let scoopSegIds = Set((cycle.scoops ?? []).map(\.excavatorSegmentId))
         let excavatorIds = TelemetryMetricsCalculator.resolveExcavatorMachineIds(
             cycles: [cycle],
-            segments: scopedRecordingSegments
+            segments: allRecordingSegments
         )
 
-        let matched = scopedRecordingSegments.filter { seg in
+        let matched = allRecordingSegments.filter { seg in
             if seg.cycleId == cycle.cycleId || truckSegIds.contains(seg.segmentId) || scoopSegIds.contains(seg.segmentId) {
                 return true
             }
-            // Include adjacent excavator face_prep/idle context intervals within -60s/+30s of this cycle inside active time window.
+            // Include adjacent excavator face_prep/idle context intervals within -60s/+30s of this cycle.
             return seg.machineId == cycle.excavatorId
                 && seg.endS >= (cycleStart - 60)
                 && seg.startS <= (cycleEnd + 30)
@@ -199,7 +168,6 @@ public enum DataExplorerBuilder {
 
         let segRows = matched.map { seg in
             let isExc = TelemetryMetricsCalculator.isExcavatorMachine(seg.machineId, knownExcavators: excavatorIds)
-            let wallClock = baseDate.addingTimeInterval(seg.startS)
             return StateTimingExplorerRow(
                 segmentId: seg.segmentId,
                 recordingId: seg.recordingId,
@@ -211,9 +179,8 @@ public enum DataExplorerBuilder {
                 startS: seg.startS,
                 endS: seg.endS,
                 durationS: seg.durationS,
-                utcClockStart: OviusFormat.utcClock(wallClock),
                 confidence: seg.confidence,
-                isUncertain: seg.confidence < config.uncertaintyConfidenceCutoff
+                isUncertain: seg.confidence < uncertaintyCutoff
             )
         }
 
@@ -232,10 +199,5 @@ public enum DataExplorerBuilder {
         }
 
         return (segRows, scoopRows)
-    }
-
-    private static func mean(_ values: [Double]) -> Double {
-        guard !values.isEmpty else { return 0.0 }
-        return values.reduce(0.0, +) / Double(values.count)
     }
 }

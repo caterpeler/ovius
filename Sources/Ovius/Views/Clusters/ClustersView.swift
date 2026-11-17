@@ -1,75 +1,145 @@
 import SwiftUI
 
-/// Native master-detail management workspace for Domain 2 `Cluster` and `Section` groupings.
+/// Right-hand detail workspace for managing the selected Domain 2 `Section` and testing its
+/// AWS selectors.
 public struct ClustersView: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Bindable public var viewModel: ClustersViewModel
 
-    @State private var showingNewClusterSheet = false
-    @State private var editingCluster: Cluster?
-    @State private var showingNewSectionSheet = false
-    @State private var editingSection: Section?
+    @State private var sectionDraft: SectionEditorDraft?
 
     public init(viewModel: ClustersViewModel) {
         self.viewModel = viewModel
     }
 
     public var body: some View {
-        HSplitView {
-            clusterAndSectionList
-                .frame(minWidth: 260, idealWidth: 300, maxWidth: 360)
+        Group {
+            if let section = viewModel.selectedSection {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: OviusDesign.Spacing.section) {
+                        if let errorMessage = viewModel.errorMessage {
+                            DashboardStatusBannerView(
+                                title: "Selector Error",
+                                message: errorMessage,
+                                accent: Tokens.danger,
+                                systemImage: "exclamationmark.triangle.fill"
+                            )
+                        }
 
-            sectionDetailPane
-                .frame(minWidth: 420, maxWidth: .infinity, maxHeight: .infinity)
-        }
-        .navigationTitle("Clusters & Sections")
-        .toolbar {
-            ToolbarItemGroup {
-                Button {
-                    showingNewClusterSheet = true
-                } label: {
-                    Label("Add Cluster", systemImage: "folder.badge.plus")
-                }
+                        sectionHeader(for: section)
 
-                if viewModel.selectedCluster != nil {
-                    Button {
-                        showingNewSectionSheet = true
-                    } label: {
-                        Label("Add Section", systemImage: "plus.rectangle.on.folder")
+                        VStack(alignment: .leading, spacing: 0) {
+                            Text("Dynamic Recording Selectors")
+                                .font(.subheadline.bold())
+                                .foregroundStyle(Tokens.text)
+                                .padding(.horizontal, OviusDesign.Spacing.standard)
+                                .padding(.vertical, OviusDesign.Spacing.compact + 1)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(Tokens.raised)
+
+                            DividerLine()
+
+                            VStack(alignment: .leading, spacing: OviusDesign.Spacing.compact) {
+                                LabeledContent("Camera IDs") {
+                                    Text(section.cameraIds.isEmpty ? "—" : section.cameraIds.joined(separator: ", "))
+                                        .foregroundStyle(Tokens.text)
+                                }
+                                LabeledContent("Location Tags") {
+                                    Text(section.locationTags.isEmpty ? "—" : section.locationTags.joined(separator: ", "))
+                                        .foregroundStyle(Tokens.text)
+                                }
+                                LabeledContent("Custom Tags") {
+                                    Text(section.customTags.isEmpty ? "—" : section.customTags.joined(separator: ", "))
+                                        .foregroundStyle(Tokens.text)
+                                }
+                                LabeledContent("Exact Filenames") {
+                                    Text(section.filenames.isEmpty ? "—" : section.filenames.joined(separator: ", "))
+                                        .foregroundStyle(Tokens.text)
+                                }
+                                LabeledContent("Assigned Trucks Override") {
+                                    Text(section.assignedTrucks.map(String.init) ?? "Auto-detected from telemetry")
+                                        .foregroundStyle(Tokens.text2)
+                                }
+                            }
+                            .padding(OviusDesign.Spacing.standard)
+                        }
+                        .panelSurface(background: Tokens.surface, borderColor: Tokens.border, radius: Tokens.radiusLg)
+
+                        VStack(alignment: .leading, spacing: 0) {
+                            Text("Live AWS DynamoDB Selector Test")
+                                .font(.subheadline.bold())
+                                .foregroundStyle(Tokens.text)
+                                .padding(.horizontal, OviusDesign.Spacing.standard)
+                                .padding(.vertical, OviusDesign.Spacing.compact + 1)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(Tokens.raised)
+
+                            DividerLine()
+
+                            VStack(alignment: .leading, spacing: OviusDesign.Spacing.standard) {
+                                HStack(spacing: OviusDesign.Spacing.standard) {
+                                    Button {
+                                        Task { await viewModel.testSectionSelector(section) }
+                                    } label: {
+                                        if viewModel.isTestingSelector {
+                                            ProgressView().controlSize(.small)
+                                        } else {
+                                            Label("Test Selector Against AWS", systemImage: "network")
+                                        }
+                                    }
+                                    .buttonStyle(.borderedProminent)
+                                    .disabled(viewModel.isTestingSelector)
+
+                                    if let msg = viewModel.selectorTestMessage {
+                                        Label(msg, systemImage: "checkmark.circle.fill")
+                                            .font(.footnote)
+                                            .foregroundStyle(Tokens.success.text)
+                                    }
+                                }
+
+                                if !viewModel.previewRecordings.isEmpty {
+                                    Table(viewModel.previewRecordings) {
+                                        TableColumn("Recording ID") { rec in
+                                            Text(rec.recordingId).font(.footnote.monospaced())
+                                        }
+                                        TableColumn("Camera") { rec in
+                                            Text(rec.cameraId).font(.footnote)
+                                        }
+                                        TableColumn("Timestamp") { rec in
+                                            Text(rec.formattedTimestampLabel.isEmpty ? rec.timestamp : rec.formattedTimestampLabel)
+                                                .font(.footnote.monospacedDigit())
+                                        }
+                                        TableColumn("Location") { rec in
+                                            Text(rec.locationTag).font(.footnote)
+                                        }
+                                    }
+                                    .scrollContentBackground(.hidden)
+                                    .frame(minHeight: 220, maxHeight: 340)
+                                    .panelSurface(background: Tokens.bg, borderColor: Tokens.border, radius: Tokens.radiusMd)
+                                }
+                            }
+                            .padding(OviusDesign.Spacing.standard)
+                        }
+                        .panelSurface(background: Tokens.surface, borderColor: Tokens.border, radius: Tokens.radiusLg)
                     }
+                    .padding(OviusDesign.Spacing.page)
                 }
+                .background(Tokens.bg)
+            } else {
+                ContentUnavailableView(
+                    "No Section Selected",
+                    systemImage: "square.stack.3d.up",
+                    description: Text("Select a section from the Sections list or add a new section to inspect its AWS selectors.")
+                )
+                .background(Tokens.bg)
             }
         }
-        .onAppear {
-            viewModel.reload()
-        }
-        .sheet(isPresented: $showingNewClusterSheet) {
-            ClusterEditorSheet { id, name, tags in
-                viewModel.createOrUpdateCluster(clusterId: id, name: name, tagsText: tags)
-            }
-        }
-        .sheet(item: $editingCluster) { cluster in
-            ClusterEditorSheet(existingCluster: cluster) { id, name, tags in
-                viewModel.createOrUpdateCluster(clusterId: id, name: name, tagsText: tags)
-            }
-        }
-        .sheet(isPresented: $showingNewSectionSheet) {
-            if let cluster = viewModel.selectedCluster {
-                SectionEditorSheet(clusterId: cluster.clusterId) { sId, cId, name, cams, locs, tags, files, trucks in
-                    viewModel.createOrUpdateSection(
-                        sectionId: sId,
-                        clusterId: cId,
-                        name: name,
-                        cameraIdsText: cams,
-                        locationTagsText: locs,
-                        customTagsText: tags,
-                        filenamesText: files,
-                        assignedTrucksText: trucks
-                    )
-                }
-            }
-        }
-        .sheet(item: $editingSection) { section in
-            SectionEditorSheet(clusterId: section.clusterId, existingSection: section) { sId, cId, name, cams, locs, tags, files, trucks in
+        .background(Tokens.bg)
+        .navigationTitle(viewModel.selectedSection?.name ?? "Clusters & Sections")
+        .navigationSubtitle(viewModel.selectedCluster?.name ?? "")
+        .navigationSplitViewColumnWidth(min: OviusDesign.Column.detailMin, ideal: 720)
+        .sheet(item: $sectionDraft) { draft in
+            SectionEditorSheet(clusterId: draft.clusterId, existingSection: draft.existingSection) { sId, cId, name, cams, locs, tags, files, trucks in
                 viewModel.createOrUpdateSection(
                     sectionId: sId,
                     clusterId: cId,
@@ -84,153 +154,42 @@ public struct ClustersView: View {
         }
     }
 
-    private var clusterAndSectionList: some View {
-        List {
-            ForEach(viewModel.clusters, id: \.clusterId) { cluster in
-                SwiftUI.Section {
-                    ForEach(cluster.sections.sorted { $0.sectionId < $1.sectionId }, id: \.sectionId) { section in
-                        Button {
-                            viewModel.selectedClusterId = cluster.clusterId
-                            viewModel.selectedSectionId = section.sectionId
-                            viewModel.previewRecordings = []
-                            viewModel.selectorTestMessage = nil
-                        } label: {
-                            HStack {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(section.name)
-                                        .font(.body)
-                                    Text("\(section.cameraIds.count) cameras • \(section.sectionId)")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-                                Spacer()
-                                if viewModel.selectedSection?.sectionId == section.sectionId {
-                                    Image(systemName: "checkmark")
-                                        .foregroundStyle(Color.accentColor)
-                                }
-                            }
-                            .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                    }
-                } header: {
-                    HStack {
-                        Text(cluster.name)
-                        Spacer()
-                        Button("Edit") {
-                            editingCluster = cluster
-                        }
-                        .buttonStyle(.link)
-                        .font(.caption)
-                    }
-                }
-            }
-        }
-        .listStyle(.sidebar)
-    }
-
     @ViewBuilder
-    private var sectionDetailPane: some View {
-        if let section = viewModel.selectedSection {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    if let errorMessage = viewModel.errorMessage {
-                        GroupBox {
-                            Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
-                                .foregroundStyle(.red)
-                        }
-                    }
+    private func sectionHeader(for section: Section) -> some View {
+        let headerActions = HStack(spacing: OviusDesign.Spacing.compact) {
+            Button("Edit Selectors") {
+                sectionDraft = .edit(section)
+            }
+            .buttonStyle(.bordered)
 
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(section.name)
-                                .font(.title2.bold())
-                            Text("Section ID: \(section.sectionId) • Cluster: \(section.clusterId)")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                        Spacer()
+            Button("Delete Section", role: .destructive) {
+                viewModel.deleteSection(section)
+            }
+            .buttonStyle(.bordered)
+        }
 
-                        Button("Edit Selectors") {
-                            editingSection = section
-                        }
-
-                        Button("Delete Section", role: .destructive) {
-                            viewModel.deleteSection(section)
-                        }
-                    }
-
-                    GroupBox("Dynamic Recording Selectors") {
-                        VStack(alignment: .leading, spacing: 8) {
-                            LabeledContent("Camera IDs") {
-                                Text(section.cameraIds.isEmpty ? "—" : section.cameraIds.joined(separator: ", "))
-                            }
-                            LabeledContent("Location Tags") {
-                                Text(section.locationTags.isEmpty ? "—" : section.locationTags.joined(separator: ", "))
-                            }
-                            LabeledContent("Custom Tags") {
-                                Text(section.customTags.isEmpty ? "—" : section.customTags.joined(separator: ", "))
-                            }
-                            LabeledContent("Exact Filenames") {
-                                Text(section.filenames.isEmpty ? "—" : section.filenames.joined(separator: ", "))
-                            }
-                            LabeledContent("Assigned Trucks Override") {
-                                Text(section.assignedTrucks.map(String.init) ?? "Auto-detected from telemetry")
-                            }
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-
-                    GroupBox("Live AWS DynamoDB Selector Test") {
-                        VStack(alignment: .leading, spacing: 10) {
-                            HStack {
-                                Button {
-                                    Task { await viewModel.testSectionSelector(section) }
-                                } label: {
-                                    if viewModel.isTestingSelector {
-                                        ProgressView().controlSize(.small)
-                                    } else {
-                                        Label("Test Selector Against AWS", systemImage: "network")
-                                    }
-                                }
-                                .disabled(viewModel.isTestingSelector)
-
-                                if let msg = viewModel.selectorTestMessage {
-                                    Text(msg)
-                                        .font(.caption)
-                                        .foregroundStyle(.green)
-                                }
-                            }
-
-                            if !viewModel.previewRecordings.isEmpty {
-                                Table(viewModel.previewRecordings) {
-                                    TableColumn("Recording ID") { rec in
-                                        Text(rec.recordingId).font(.caption.monospaced())
-                                    }
-                                    TableColumn("Camera") { rec in
-                                        Text(rec.cameraId).font(.caption)
-                                    }
-                                    TableColumn("Timestamp") { rec in
-                                        Text(rec.timestamp).font(.caption.monospacedDigit())
-                                    }
-                                    TableColumn("Location") { rec in
-                                        Text(rec.locationTag).font(.caption)
-                                    }
-                                }
-                                .frame(height: 220)
-                            }
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                }
-                .padding(20)
+        if dynamicTypeSize.isAccessibilitySize {
+            VStack(alignment: .leading, spacing: OviusDesign.Spacing.compact) {
+                sectionIdentity(section)
+                headerActions
             }
         } else {
-            ContentUnavailableView(
-                "No Section Selected",
-                systemImage: "square.stack.3d.up",
-                description: Text("Select a section from the sidebar or add a new section to inspect its AWS selectors.")
-            )
+            HStack(alignment: .firstTextBaseline) {
+                sectionIdentity(section)
+                Spacer(minLength: OviusDesign.Spacing.standard)
+                headerActions
+            }
+        }
+    }
+
+    private func sectionIdentity(_ section: Section) -> some View {
+        VStack(alignment: .leading, spacing: OviusDesign.Spacing.tight) {
+            Text(section.name)
+                .font(.title2.bold())
+                .foregroundStyle(Tokens.text)
+            Text("Section ID: \(section.sectionId) • Cluster: \(section.clusterId)")
+                .font(.footnote.monospacedDigit())
+                .foregroundStyle(Tokens.text2)
         }
     }
 }

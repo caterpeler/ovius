@@ -3,11 +3,10 @@ import Testing
 @testable import Ovius
 
 struct TelemetryMetricsCalculatorTests {
-    @Test func idleAllowanceDiscountAppliesFiveMinuteRule() {
-        let config = TelemetryCalculationConfig(idleThresholdS: 300)
-        let recording = RecordingDTO(
+    @Test func dashboardMetricsComputeCompleteCycleStatsAndMeanPassesPerCycle() {
+        let rec1 = RecordingDTO(
             recordingId: "rec-1",
-            filename: "clip.mp4",
+            filename: "clip1.mp4",
             timestamp: "2026-11-16T08:00:00Z",
             cameraId: "CAM-ALPHA-01",
             locationTag: "Bench",
@@ -16,67 +15,10 @@ struct TelemetryMetricsCalculatorTests {
             resolution: "1920x1080",
             tags: []
         )
-
-        // Two contiguous idle segments totaling 420s -> 420 - 300 = 120s net excess.
-        let seg1 = StateSegmentDTO(
-            segmentId: "s1",
-            recordingId: "rec-1",
-            cycleId: "c1",
-            cycleSortKey: nil,
-            machineId: "TRK-01",
-            scoopNumber: nil,
-            state: "idle",
-            startS: 100,
-            endS: 300,
-            confidence: 0.92
-        )
-        let seg2 = StateSegmentDTO(
-            segmentId: "s2",
-            recordingId: "rec-1",
-            cycleId: "c1",
-            cycleSortKey: nil,
-            machineId: "TRK-01",
-            scoopNumber: nil,
-            state: "idle",
-            startS: 300,
-            endS: 520,
-            confidence: 0.95
-        )
-        // Below threshold 250s -> 0s excess.
-        let seg3 = StateSegmentDTO(
-            segmentId: "s3",
-            recordingId: "rec-1",
-            cycleId: "c2",
-            cycleSortKey: nil,
-            machineId: "TRK-02",
-            scoopNumber: nil,
-            state: "idle",
-            startS: 600,
-            endS: 850,
-            confidence: 0.61
-        )
-
-        let snapshot = TelemetryMetricsCalculator.computeSectionSnapshot(
-            sectionId: "SEC_ALPHA",
-            sectionName: "Section Alpha",
-            recordings: [recording],
-            cycles: [],
-            segments: [seg1, seg2, seg3],
-            config: config
-        )
-
-        #expect(abs(snapshot.value(for: .trueIdleExcessS) - 120.0) < 0.001)
-        #expect(abs(snapshot.totalPostAllowanceIdleS - 120.0) < 0.001)
-        // Business Rule 4.3: confidence < 0.70 tracked cleanly.
-        #expect(snapshot.uncertainSegmentCount == 1)
-    }
-
-    @Test func incompleteCyclesAreExcludedFromPhaseAveragesAndNullifiedInAudit() {
-        let config = TelemetryCalculationConfig(meanPayloadM3: 51.1)
-        let recording = RecordingDTO(
-            recordingId: "rec-1",
-            filename: "clip.mp4",
-            timestamp: "2026-11-16T08:00:00Z",
+        let rec2 = RecordingDTO(
+            recordingId: "rec-2",
+            filename: "clip2.mp4",
+            timestamp: "2026-11-16T10:00:00Z",
             cameraId: "CAM-ALPHA-01",
             locationTag: "Bench",
             durationS: 3600,
@@ -85,252 +27,159 @@ struct TelemetryMetricsCalculatorTests {
             tags: []
         )
 
-        let completeCycle = HaulCycleDTO(
+        // Complete cycles: durations 180s (3 passes), 200s (4 passes), 220s (5 passes).
+        // Incomplete cycle should be excluded from mean/stdev cycle time & passes.
+        let c1 = HaulCycleDTO(
             recordingId: "rec-1",
-            cycleId: "cyc-complete",
-            excavatorId: "EXC-01",
+            cycleId: "c1",
+            excavatorId: "E1",
             excavatorSortKey: nil,
-            truckLabel: "DT-01",
+            truckLabel: "T1",
             cycleStatus: "complete",
             tArriveS: 0,
             tSpotS: 20,
-            tLoadStartS: 50,
-            tLoadEndS: 170,
-            tDepartS: 190,
+            tLoadStartS: 40,
+            tLoadEndS: 160,
+            tDepartS: 180,
             queueTimeS: 20,
-            scoops: nil,
+            scoops: [
+                ScoopTimingDTO(scoopNumber: 1, excavatorSegmentId: "s1", startS: 40, dumpS: 60, endS: 75),
+                ScoopTimingDTO(scoopNumber: 2, excavatorSegmentId: "s2", startS: 80, dumpS: 100, endS: 115),
+                ScoopTimingDTO(scoopNumber: 3, excavatorSegmentId: "s3", startS: 120, dumpS: 140, endS: 160),
+            ],
             truckSegments: nil
         )
-
-        let incompleteCycle = HaulCycleDTO(
+        let c2 = HaulCycleDTO(
             recordingId: "rec-1",
-            cycleId: "cyc-cut-off",
-            excavatorId: "EXC-01",
+            cycleId: "c2",
+            excavatorId: "E1",
             excavatorSortKey: nil,
-            truckLabel: "DT-02",
+            truckLabel: "T2",
+            cycleStatus: "complete",
+            tArriveS: 300,
+            tSpotS: 320,
+            tLoadStartS: 340,
+            tLoadEndS: 480,
+            tDepartS: 500,
+            queueTimeS: 20,
+            scoops: [
+                ScoopTimingDTO(scoopNumber: 1, excavatorSegmentId: "s4", startS: 340, dumpS: 360, endS: 375),
+                ScoopTimingDTO(scoopNumber: 2, excavatorSegmentId: "s5", startS: 380, dumpS: 400, endS: 410),
+                ScoopTimingDTO(scoopNumber: 3, excavatorSegmentId: "s6", startS: 415, dumpS: 435, endS: 445),
+                ScoopTimingDTO(scoopNumber: 4, excavatorSegmentId: "s7", startS: 450, dumpS: 470, endS: 480),
+            ],
+            truckSegments: nil
+        )
+        let c3 = HaulCycleDTO(
+            recordingId: "rec-2",
+            cycleId: "c3",
+            excavatorId: "E1",
+            excavatorSortKey: nil,
+            truckLabel: "T1",
+            cycleStatus: "complete",
+            tArriveS: 100,
+            tSpotS: 120,
+            tLoadStartS: 140,
+            tLoadEndS: 300,
+            tDepartS: 320,
+            queueTimeS: 20,
+            scoops: (1...5).map { idx in
+                ScoopTimingDTO(scoopNumber: idx, excavatorSegmentId: "s3-\(idx)", startS: 140, dumpS: 150, endS: 160)
+            },
+            truckSegments: nil
+        )
+        let cIncomplete = HaulCycleDTO(
+            recordingId: "rec-2",
+            cycleId: "c-inc",
+            excavatorId: "E1",
+            excavatorSortKey: nil,
+            truckLabel: "T3",
             cycleStatus: "incomplete",
             tArriveS: 3400,
-            tSpotS: 3500,
-            tLoadStartS: 3540,
-            tLoadEndS: 3600,
+            tSpotS: 3420,
+            tLoadStartS: 3450,
+            tLoadEndS: 3580,
             tDepartS: nil,
-            queueTimeS: 100,
-            scoops: nil,
+            queueTimeS: 20,
+            scoops: [
+                ScoopTimingDTO(scoopNumber: 1, excavatorSegmentId: "s-inc", startS: 3450, dumpS: 3465, endS: 3480),
+            ],
             truckSegments: nil
         )
 
-        let snapshot = TelemetryMetricsCalculator.computeSectionSnapshot(
-            sectionId: "SEC_ALPHA",
-            sectionName: "Section Alpha",
-            recordings: [recording],
-            cycles: [completeCycle, incompleteCycle],
-            segments: [],
-            config: config
+        let summary = TelemetryMetricsCalculator.computeDashboardMetrics(
+            recordings: [rec1, rec2],
+            cycles: [c1, c2, c3, cIncomplete],
+            segments: []
         )
 
-        #expect(snapshot.completeCycleCount == 1)
-        #expect(snapshot.incompleteCycleCount == 1)
-        #expect(abs(snapshot.value(for: .avgQueueTimeS) - 20.0) < 0.001)
-        #expect(abs(snapshot.value(for: .volumetricRateM3Hr) - 51.1) < 0.001)
-
-        let cutOffRow = snapshot.cycleAuditRows.first { $0.cycleId == "cyc-cut-off" }
-        #expect(cutOffRow != nil)
-        #expect(cutOffRow?.isComplete == false)
-        #expect(cutOffRow?.totalCycleDurationS == nil)
+        #expect(summary.recordingCount == 2)
+        #expect(summary.completeCycleCount == 3)
+        #expect(summary.totalCycleCount == 4)
+        #expect(abs(summary.meanCyclesPerRecording - 1.5) < 0.001)
+        #expect(abs(summary.meanPassesPerCycle - 4.0) < 0.001)
+        #expect(abs(summary.meanCycleTimeS - 200.0) < 0.001)
+        // Sample stdev of [180, 200, 220] = sqrt((400 + 0 + 400) / 2) = 20.0
+        #expect(abs(summary.cycleTimeStdDevS - 20.0) < 0.001)
     }
 
-    @Test func diagnosticEvaluatorTriggersOversupplyLeadFromRelativeDeltas() {
-        let queueHighPattern = PatternRuleSpec(
-            patternId: "PAT_HIGH_QUEUE_TIME",
-            name: "High Queue",
-            details: "Queue exceeds +35%",
-            metricKey: .avgQueueTimeS,
-            comparisonMode: .relativeDeltaPct,
-            direction: .aboveBaseline,
-            thresholdValue: 0.35
-        )
-        let normalLoadPattern = PatternRuleSpec(
-            patternId: "PAT_NORMAL_LOAD_DURATION",
-            name: "Nominal Load",
-            details: "Within band",
-            metricKey: .avgLoadDurationS,
-            comparisonMode: .zScore,
-            direction: .withinBand,
-            thresholdValue: 1.5
-        )
-
-        let leadSpec = LeadRuleSpec(
-            leadId: "LEAD_DUMPTRUCK_OVERSUPPLY",
-            name: "Dumptruck Oversupply",
-            category: "Fleet Balance",
-            details: "Too many trucks",
-            requiredPatternIds: ["PAT_HIGH_QUEUE_TIME"],
-            supportingPatternIds: ["PAT_NORMAL_LOAD_DURATION"]
-        )
-
-        let alpha = SectionMetricsSnapshot(
-            sectionId: "ALPHA",
-            sectionName: "Alpha",
-            recordingCount: 1,
-            totalCameraHours: 10,
-            totalCycleCount: 10,
-            completeCycleCount: 10,
-            incompleteCycleCount: 0,
-            totalSegmentCount: 10,
-            uncertainSegmentCount: 0,
-            totalVolumeM3: 511,
-            struckVolumeM3: 421,
-            heapedVolumeM3: 601,
-            avgCycleDurationS: 200,
-            totalPostAllowanceIdleS: 0,
-            metricValues: [.avgQueueTimeS: 100, .avgLoadDurationS: 120],
-            queueTimeHistogram: [],
-            interArrivalGapHistogram: [],
-            hourlySeries: [],
-            ganttSegments: [],
-            cycleAuditRows: []
-        )
-        let beta = SectionMetricsSnapshot(
-            sectionId: "BETA",
-            sectionName: "Beta",
-            recordingCount: 1,
-            totalCameraHours: 10,
-            totalCycleCount: 10,
-            completeCycleCount: 10,
-            incompleteCycleCount: 0,
-            totalSegmentCount: 10,
-            uncertainSegmentCount: 0,
-            totalVolumeM3: 511,
-            struckVolumeM3: 421,
-            heapedVolumeM3: 601,
-            avgCycleDurationS: 140,
-            totalPostAllowanceIdleS: 0,
-            metricValues: [.avgQueueTimeS: 20, .avgLoadDurationS: 118],
-            queueTimeHistogram: [],
-            interArrivalGapHistogram: [],
-            hourlySeries: [],
-            ganttSegments: [],
-            cycleAuditRows: []
-        )
-
-        let baseline = TelemetryMetricsCalculator.computeClusterBaseline(
-            clusterId: "C1",
-            sectionSnapshots: [alpha, beta]
-        )
-        let patResults = DiagnosticEvaluator.evaluatePatterns(
-            [queueHighPattern, normalLoadPattern],
-            snapshot: alpha,
-            baseline: baseline
-        )
-        let leadResults = DiagnosticEvaluator.evaluateLeads([leadSpec], patternResults: patResults)
-
-        #expect(leadResults.count == 1)
-        #expect(leadResults[0].isFlagged == true)
-        #expect(leadResults[0].confidenceScore == 1.0)
-    }
-
-    @Test func subSecondMergedBreakOverrunAndIntervalSlicingComputeExactMetrics() {
-        let config = TelemetryCalculationConfig(
-            meanPayloadM3: 51.1,
-            idleThresholdS: 300,
-            shiftEdgeWindowMin: 60,
-            shiftStartHours: ["06:00"],
-            breakWindows: ["12:00-13:00"]
-        )
-        // Staggered clip starting at 06:30:00Z (halfway through 06:00-07:00 shift edge).
-        let recording = RecordingDTO(
-            recordingId: "rec-subsec",
-            filename: "staggered.mp4",
-            timestamp: "2026-11-16T06:30:00Z",
+    @Test func dashboardMetricsComputePerEquipmentIdleAndEEUExcludingOutOfFrame() {
+        let rec = RecordingDTO(
+            recordingId: "rec-util",
+            filename: "util.mp4",
+            timestamp: "2026-11-16T06:00:00Z",
             cameraId: "CAM-ALPHA-01",
             locationTag: "Pocket",
-            durationS: 7 * 3600,
+            durationS: 1000,
             fps: 25,
             resolution: "1920x1080",
             tags: []
         )
 
-        // Two contiguous idle intervals on E4 (no cycles!) crossing from 12:55Z to 13:10:28.3Z (628.3s overrun).
-        let idlePart1 = StateSegmentDTO(
-            segmentId: "s-p1",
-            recordingId: "rec-subsec",
-            cycleId: "NONE",
-            cycleSortKey: nil,
-            machineId: "E4",
-            scoopNumber: nil,
-            state: "idle",
-            startS: (6 * 3600) + 1500.0, // 12:55:00Z
-            endS: (6 * 3600) + 1800.0,   // 13:00:00Z
-            confidence: 0.92
-        )
-        let idlePart2 = StateSegmentDTO(
-            segmentId: "s-p2",
-            recordingId: "rec-subsec",
-            cycleId: "NONE",
-            cycleSortKey: nil,
-            machineId: "E4",
-            scoopNumber: nil,
-            state: "idle",
-            startS: (6 * 3600) + 1800.0,   // 13:00:00Z
-            endS: (6 * 3600) + 2428.3,     // 13:10:28.3Z
-            confidence: 0.93
-        )
-        // Edge segment spanning across 07:00:00Z boundary (06:45Z -> 07:15Z): 15m inside edge, 15m outside.
-        let spanEdgeLoading = StateSegmentDTO(
-            segmentId: "s-span",
-            recordingId: "rec-subsec",
-            cycleId: "c1",
-            cycleSortKey: nil,
-            machineId: "E4",
-            scoopNumber: nil,
-            state: "loading_scoop",
-            startS: 900.0,  // 06:45Z
-            endS: 2700.0,   // 07:15Z
-            confidence: 0.95
-        )
+        // Excavator E1:
+        // Active: 100s loading_scoop + 40s face_prep = 140s
+        // Idle: contiguous [10..30] + [30..60] -> merged 50s spell, plus separate [100..110] -> 10s spell
+        // Out of frame: 500s (ignored in EEU denominator)
+        // Expected Excavator Mean Idle = 30.0s, Sample Stdev = sqrt(800) = 28.28427s, EEU = 140 / 200 = 0.70
+        let segments: [StateSegmentDTO] = [
+            StateSegmentDTO(segmentId: "e-load", recordingId: "rec-util", cycleId: "c1", cycleSortKey: nil, machineId: "E1", scoopNumber: 1, state: "loading_scoop", startS: 200, endS: 300, confidence: 0.95),
+            StateSegmentDTO(segmentId: "e-prep", recordingId: "rec-util", cycleId: "NONE", cycleSortKey: nil, machineId: "E1", scoopNumber: nil, state: "face_prep", startS: 300, endS: 340, confidence: 0.90),
+            StateSegmentDTO(segmentId: "e-idle-1a", recordingId: "rec-util", cycleId: "NONE", cycleSortKey: nil, machineId: "E1", scoopNumber: nil, state: "idle", startS: 10, endS: 30, confidence: 0.92),
+            StateSegmentDTO(segmentId: "e-idle-1b", recordingId: "rec-util", cycleId: "NONE", cycleSortKey: nil, machineId: "E1", scoopNumber: nil, state: "idle", startS: 30, endS: 60, confidence: 0.92),
+            StateSegmentDTO(segmentId: "e-idle-2", recordingId: "rec-util", cycleId: "NONE", cycleSortKey: nil, machineId: "E1", scoopNumber: nil, state: "idle", startS: 100, endS: 110, confidence: 0.91),
+            StateSegmentDTO(segmentId: "e-oof", recordingId: "rec-util", cycleId: "NONE", cycleSortKey: nil, machineId: "E1", scoopNumber: nil, state: "out_of_frame", startS: 400, endS: 900, confidence: 0.99),
 
-        let snapshot = TelemetryMetricsCalculator.computeSectionSnapshot(
-            sectionId: "ALPHA",
-            sectionName: "Alpha",
-            recordings: [recording],
+            // Truck T1:
+            // Active: spotting (20s) + being_loaded (80s) + departing (20s) = 120s
+            // Idle: queuing_idle (30s) + separate idle (50s) = 80s total across 2 spells -> Mean = 40.0s, Sample Stdev = sqrt(200)
+            // Out of frame: 300s (ignored in EEU denominator) -> Truck EEU = 120 / 200 = 0.60
+            StateSegmentDTO(segmentId: "t-queue", recordingId: "rec-util", cycleId: "c1", cycleSortKey: nil, machineId: "T1", scoopNumber: nil, state: "queuing_idle", startS: 150, endS: 180, confidence: 0.93),
+            StateSegmentDTO(segmentId: "t-spot", recordingId: "rec-util", cycleId: "c1", cycleSortKey: nil, machineId: "T1", scoopNumber: nil, state: "spotting", startS: 180, endS: 200, confidence: 0.94),
+            StateSegmentDTO(segmentId: "t-load", recordingId: "rec-util", cycleId: "c1", cycleSortKey: nil, machineId: "T1", scoopNumber: nil, state: "being_loaded", startS: 200, endS: 280, confidence: 0.96),
+            StateSegmentDTO(segmentId: "t-dep", recordingId: "rec-util", cycleId: "c1", cycleSortKey: nil, machineId: "T1", scoopNumber: nil, state: "departing", startS: 280, endS: 300, confidence: 0.95),
+            StateSegmentDTO(segmentId: "t-idle", recordingId: "rec-util", cycleId: "NONE", cycleSortKey: nil, machineId: "T1", scoopNumber: nil, state: "idle", startS: 350, endS: 400, confidence: 0.90),
+            StateSegmentDTO(segmentId: "t-oof", recordingId: "rec-util", cycleId: "NONE", cycleSortKey: nil, machineId: "T1", scoopNumber: nil, state: "out_of_frame", startS: 600, endS: 900, confidence: 0.99),
+        ]
+
+        let summary = TelemetryMetricsCalculator.computeDashboardMetrics(
+            recordings: [rec],
             cycles: [],
-            segments: [spanEdgeLoading, idlePart1, idlePart2],
-            config: config
+            segments: segments
         )
 
-        // Exact sub-second merged break overrun past 13:00:00Z = 628.3s.
-        #expect(abs(snapshot.value(for: .breakWindowIdleExcessS) - 628.3) < 0.05)
-        // Hourly delay bucket 12:00Z receives 300s (12:55..13:00) and 13:00Z receives 628.3s (not 100% into midpoint).
-        let hr12 = snapshot.hourlySeries.first { $0.hourUTC == 12 }
-        let hr13 = snapshot.hourlySeries.first { $0.hourUTC == 13 }
-        #expect(abs((hr12?.delayDurationS ?? 0) - 300.0) < 0.05)
-        #expect(abs((hr13?.delayDurationS ?? 0) - 628.3) < 0.05)
-        // E4 recognized as excavator without cycles: hang ratio = 928.3 / (1800 + 928.3).
-        #expect(abs(snapshot.value(for: .excavatorHangRatio) - (928.3 / 2728.3)) < 0.001)
-
-        // Single-section baseline (< 2 peers) must mark relative/Z patterns as insufficient data rather than normal.
-        let singleBaseline = TelemetryMetricsCalculator.computeClusterBaseline(
-            clusterId: "C_SINGLE",
-            sectionSnapshots: [snapshot]
-        )
-        let normalPattern = PatternRuleSpec(
-            patternId: "PAT_NORMAL_DEPARTURE",
-            name: "Nominal Departure",
-            details: "Within band",
-            metricKey: .avgDepartureLagS,
-            comparisonMode: .zScore,
-            direction: .withinBand,
-            thresholdValue: 0.6
-        )
-        let eval = DiagnosticEvaluator.evaluatePattern(normalPattern, snapshot: snapshot, baseline: singleBaseline)
-        #expect(eval.hasInsufficientData == true)
-        #expect(eval.isTriggered == false)
+        #expect(summary.excavatorIdleSpellCount == 2)
+        #expect(abs(summary.excavatorMeanIdleS - 30.0) < 0.001)
+        #expect(abs(summary.excavatorIdleStdDevS - sqrt(800.0)) < 0.001)
+        #expect(summary.truckIdleSpellCount == 2)
+        #expect(abs(summary.truckMeanIdleS - 40.0) < 0.001)
+        #expect(abs(summary.truckIdleStdDevS - sqrt(200.0)) < 0.001)
+        #expect(abs((summary.excavatorEEU ?? 0) - 0.70) < 0.001)
+        #expect(abs((summary.truckEEU ?? 0) - 0.60) < 0.001)
     }
 
-    @Test func intraDaySliceAndThreeLayerExplorerBuildersEnforceRulesAndRates() {
-        let config = TelemetryCalculationConfig(meanPayloadM3: 51.1)
+    @Test func dataExplorerBuildersEnforceRuleFourPointTwoAndThree() {
         let recording = RecordingDTO(
-            recordingId: "rec-slice",
+            recordingId: "rec-exp",
             filename: "shift12h.mp4",
             timestamp: "2026-11-16T06:00:00Z",
             cameraId: "CAM-ALPHA-01",
@@ -341,8 +190,8 @@ struct TelemetryMetricsCalculatorTests {
             tags: ["section:Alpha"]
         )
 
-        let earlyCycle = HaulCycleDTO(
-            recordingId: "rec-slice",
+        let completeCycle = HaulCycleDTO(
+            recordingId: "rec-exp",
             cycleId: "cyc-1",
             excavatorId: "E5",
             excavatorSortKey: nil,
@@ -360,8 +209,8 @@ struct TelemetryMetricsCalculatorTests {
             ],
             truckSegments: ["s-trk1"]
         )
-        let laterIncompleteCycle = HaulCycleDTO(
-            recordingId: "rec-slice",
+        let incompleteCycle = HaulCycleDTO(
+            recordingId: "rec-exp",
             cycleId: "cyc-2",
             excavatorId: "E5",
             excavatorSortKey: nil,
@@ -377,60 +226,38 @@ struct TelemetryMetricsCalculatorTests {
             truckSegments: nil
         )
         let segs = [
-            StateSegmentDTO(segmentId: "s-sc1", recordingId: "rec-slice", cycleId: "cyc-1", cycleSortKey: nil, machineId: "E5", scoopNumber: 1, state: "loading_scoop", startS: 140, endS: 170, confidence: 0.91),
-            StateSegmentDTO(segmentId: "s-trk1", recordingId: "rec-slice", cycleId: "cyc-1", cycleSortKey: nil, machineId: "T1", scoopNumber: nil, state: "being_loaded", startS: 140, endS: 240, confidence: 0.62),
+            StateSegmentDTO(segmentId: "s-sc1", recordingId: "rec-exp", cycleId: "cyc-1", cycleSortKey: nil, machineId: "E5", scoopNumber: 1, state: "loading_scoop", startS: 140, endS: 170, confidence: 0.91),
+            StateSegmentDTO(segmentId: "s-trk1", recordingId: "rec-exp", cycleId: "cyc-1", cycleSortKey: nil, machineId: "T1", scoopNumber: nil, state: "being_loaded", startS: 140, endS: 240, confidence: 0.62),
         ]
-
-        // Slice strictly to Startup Edge [0..3600s] (1 camera-hour).
-        let edgeSnap = TelemetryMetricsCalculator.computeSectionSnapshot(
-            sectionId: "ALPHA",
-            sectionName: "Alpha",
-            recordings: [recording],
-            cycles: [earlyCycle, laterIncompleteCycle],
-            segments: segs,
-            config: config,
-            todStartS: 0,
-            todEndS: 3600
-        )
-        #expect(edgeSnap.totalCycleCount == 1)
-        #expect(abs(edgeSnap.totalCameraHours - 1.0) < 0.001)
-        #expect(abs(edgeSnap.value(for: .volumetricRateM3Hr) - 51.1) < 0.001)
 
         // Layer 1 Explorer Row
         let l1 = DataExplorerBuilder.buildRecordingRows(
             recordings: [recording],
-            sectionNamesByRecordingId: ["rec-slice": ("SEC_ALPHA", "Section Alpha")],
-            cycles: [earlyCycle, laterIncompleteCycle],
-            todStartS: 0,
-            todEndS: 43_200,
-            config: config
+            sectionNamesByRecordingId: ["rec-exp": ("SEC_ALPHA", "Section Alpha")],
+            cycles: [completeCycle, incompleteCycle]
         )
         #expect(l1.count == 1)
         #expect(l1[0].totalCycleCount == 2)
         #expect(l1[0].completeCycleCount == 1)
-        #expect(abs(l1[0].totalVolumeM3 - 51.1) < 0.001)
+        #expect(l1[0].incompleteCycleCount == 1)
+        #expect(abs(l1[0].avgPassesPerCycle - 2.0) < 0.001)
+        #expect(abs(l1[0].avgTotalCycleS - 160.0) < 0.001)
 
         // Layer 2 Explorer Rows (Rule 4.2 + Rule 4.3)
         let l2 = DataExplorerBuilder.buildCycleRows(
-            cycles: [earlyCycle, laterIncompleteCycle],
-            segments: segs,
-            todStartS: nil,
-            todEndS: nil,
-            config: config
+            cycles: [completeCycle, incompleteCycle],
+            segments: segs
         )
         #expect(l2.count == 2)
         #expect(l2[0].uncertainSegmentCount == 1)
+        #expect(l2[0].scoopCount == 2)
         #expect(l2[1].isComplete == false)
         #expect(l2[1].totalCycleDurationS == nil)
 
         // Layer 3 State Timing & Scoop Pass Rows
         let l3 = DataExplorerBuilder.buildStateTimingRows(
-            recording: recording,
-            cycle: earlyCycle,
-            allRecordingSegments: segs,
-            todStartS: 0,
-            todEndS: 3600,
-            config: config
+            cycle: completeCycle,
+            allRecordingSegments: segs
         )
         #expect(l3.segments.count == 2)
         #expect(l3.segments[0].machineRole == "Excavator")
@@ -440,175 +267,189 @@ struct TelemetryMetricsCalculatorTests {
         #expect(abs((l3.scoops[1].interScoopGapS ?? 0) - 15.0) < 0.001)
     }
 
-    @Test func breakFilterPreservesPostBreakOverrunWhileNonBreakSliceClearsIt() throws {
-        let config = TelemetryCalculationConfig(
-            meanPayloadM3: 51.1,
-            idleThresholdS: 300,
-            shiftEdgeWindowMin: 60,
-            shiftStartHours: ["06:00"],
-            breakWindows: ["12:00-13:00"]
-        )
-        let recording = RecordingDTO(
-            recordingId: "rec-break-slice",
-            filename: "shift_alpha.mp4",
-            timestamp: "2026-11-16T06:00:00Z",
-            cameraId: "CAM-ALPHA-01",
-            locationTag: "Bench Alpha",
-            durationS: 43_200,
+    @Test func recordingDTOPreparsesStartDateAndFormattedLabel() throws {
+        let recZ = RecordingDTO(
+            recordingId: "rec-z",
+            filename: "z.mp4",
+            timestamp: "2026-11-16T08:05:30Z",
+            cameraId: "CAM-01",
+            locationTag: "Bench",
+            durationS: 600,
             fps: 25,
             resolution: "1920x1080",
             tags: []
         )
-        // Idle spell starts at 12:00Z (21600s) and runs until 13:10:28.3Z (25828.3s) -> 628.3s break overrun.
-        let breakIdle = StateSegmentDTO(
-            segmentId: "s-brk",
-            recordingId: "rec-break-slice",
-            cycleId: "NONE",
-            cycleSortKey: nil,
-            machineId: "EXC-01",
-            scoopNumber: nil,
-            state: "idle",
-            startS: 21_600.0,
-            endS: 25_828.3,
-            confidence: 0.94
-        )
-        let earlyLoad = StateSegmentDTO(
-            segmentId: "s-early",
-            recordingId: "rec-break-slice",
-            cycleId: "c1",
-            cycleSortKey: nil,
-            machineId: "EXC-01",
-            scoopNumber: nil,
-            state: "loading_scoop",
-            startS: 100.0,
-            endS: 200.0,
-            confidence: 0.95
+        let recFracOffset = RecordingDTO(
+            recordingId: "rec-off",
+            filename: "off.mp4",
+            timestamp: "2026-11-16T15:05:30.125+07:00",
+            cameraId: "CAM-01",
+            locationTag: "Bench",
+            durationS: 600,
+            fps: 25,
+            resolution: "1920x1080",
+            tags: []
         )
 
-        // Filtering strictly on Break (12:00-13:00 UTC) must retain the post-13:00 recovery overrun.
-        let breakSliceSnap = TelemetryMetricsCalculator.computeSectionSnapshot(
-            sectionId: "ALPHA",
-            sectionName: "Alpha",
-            recordings: [recording],
-            cycles: [],
-            segments: [earlyLoad, breakIdle],
-            config: config,
-            todStartS: 21_600,
-            todEndS: 25_200,
-            todBaseMinuteUTC: 360
-        )
-        #expect(abs(breakSliceSnap.value(for: .breakWindowIdleExcessS) - 628.3) < 0.05)
-
-        // Filtering strictly on Startup Edge (06:00-07:00 UTC) does not intersect 12:00-13:00 break -> 0s overrun.
-        let edgeSliceSnap = TelemetryMetricsCalculator.computeSectionSnapshot(
-            sectionId: "ALPHA",
-            sectionName: "Alpha",
-            recordings: [recording],
-            cycles: [],
-            segments: [earlyLoad, breakIdle],
-            config: config,
-            todStartS: 0,
-            todEndS: 3_600,
-            todBaseMinuteUTC: 360
-        )
-        #expect(edgeSliceSnap.value(for: .breakWindowIdleExcessS) == 0.0)
+        let dateZ = try #require(recZ.startDate)
+        let dateOff = try #require(recFracOffset.startDate)
+        #expect(abs(dateZ.timeIntervalSince1970 - dateOff.timeIntervalSince1970) < 1.0)
+        #expect(recZ.formattedTimestampLabel.isEmpty == false)
+        #expect(recZ.formattedTimestampLabel == OviusFormat.utcDateTime(dateZ))
     }
 
-    @Test func wallClockSlicingAndSection51ComparativeBreakdownsStayAccurate() {
-        let config = TelemetryCalculationConfig(shiftStartHours: ["06:00"], breakWindows: ["12:00-13:00"])
-        // Clip starts 06:30:00Z -> only 0.5h overlaps 06:00-07:00 UTC wall clock window.
-        let staggeredRec = RecordingDTO(
-            recordingId: "rec-stag",
-            filename: "stag.mp4",
-            timestamp: "2026-11-16T06:30:00Z",
-            cameraId: "CAM-BETA-01",
-            locationTag: "Pit Beta",
-            durationS: 7200,
-            fps: 25,
+    @Test func precomputedRecordingContributionsMatchFullDashboardCalculation() {
+        let rec1 = RecordingDTO(
+            recordingId: "rec-1",
+            filename: "clip1.mp4",
+            timestamp: "2026-11-16T08:00:00Z",
+            cameraId: "CAM-ALPHA-01",
+            locationTag: "Bench",
+            durationS: 3600,
+            fps: 30,
             resolution: "1920x1080",
             tags: []
         )
-        let cycInWindow = HaulCycleDTO(
-            recordingId: "rec-stag",
-            cycleId: "c-in",
-            excavatorId: "EXC-01",
-            excavatorSortKey: nil,
-            truckLabel: "DT-01",
-            cycleStatus: "complete",
-            tArriveS: 100,  // 06:31:40Z
-            tSpotS: 200,
-            tLoadStartS: 230,
-            tLoadEndS: 330,
-            tDepartS: 350,
-            queueTimeS: 100,
-            scoops: nil,
-            truckSegments: nil
+        let rec2 = RecordingDTO(
+            recordingId: "rec-2",
+            filename: "clip2.mp4",
+            timestamp: "2026-11-16T10:00:00Z",
+            cameraId: "CAM-ALPHA-01",
+            locationTag: "Bench",
+            durationS: 3600,
+            fps: 30,
+            resolution: "1920x1080",
+            tags: []
         )
-        // Second truck arrives while DT-01 is still queuing -> queue depth 1.
-        let cycOverlap = HaulCycleDTO(
-            recordingId: "rec-stag",
-            cycleId: "c-overlap",
-            excavatorId: "EXC-01",
+
+        let c1 = HaulCycleDTO(
+            recordingId: "rec-1",
+            cycleId: "c1",
+            excavatorId: "E1",
             excavatorSortKey: nil,
-            truckLabel: "DT-02",
+            truckLabel: "T1",
             cycleStatus: "complete",
-            tArriveS: 150,  // 06:32:30Z
-            tSpotS: 220,
-            tLoadStartS: 340,
-            tLoadEndS: 440,
-            tDepartS: 460,
-            queueTimeS: 70,
-            scoops: nil,
-            truckSegments: nil
-        )
-        let cycOutOfWindow = HaulCycleDTO(
-            recordingId: "rec-stag",
-            cycleId: "c-out",
-            excavatorId: "EXC-01",
-            excavatorSortKey: nil,
-            truckLabel: "DT-03",
-            cycleStatus: "complete",
-            tArriveS: 2400, // 07:10:00Z (outside 06:00-07:00 UTC)
-            tSpotS: 2420,
-            tLoadStartS: 2450,
-            tLoadEndS: 2550,
-            tDepartS: 2570,
+            tArriveS: 0,
+            tSpotS: 20,
+            tLoadStartS: 40,
+            tLoadEndS: 160,
+            tDepartS: 180,
             queueTimeS: 20,
-            scoops: nil,
+            scoops: [
+                ScoopTimingDTO(scoopNumber: 1, excavatorSegmentId: "s1", startS: 40, dumpS: 60, endS: 75),
+                ScoopTimingDTO(scoopNumber: 2, excavatorSegmentId: "s2", startS: 80, dumpS: 100, endS: 115),
+            ],
             truckSegments: nil
         )
-        let segs = [
-            StateSegmentDTO(segmentId: "s1", recordingId: "rec-stag", cycleId: "c-in", cycleSortKey: nil, machineId: "EXC-01", scoopNumber: nil, state: "loading_scoop", startS: 230, endS: 330, confidence: 0.95),
-            StateSegmentDTO(segmentId: "s2", recordingId: "rec-stag", cycleId: "NONE", cycleSortKey: nil, machineId: "EXC-01", scoopNumber: nil, state: "idle", startS: 0, endS: 200, confidence: 0.95),
-            StateSegmentDTO(segmentId: "s3", recordingId: "rec-stag", cycleId: "c-in", cycleSortKey: nil, machineId: "DT-01", scoopNumber: nil, state: "queuing_idle", startS: 100, endS: 200, confidence: 0.95),
-            StateSegmentDTO(segmentId: "s4", recordingId: "rec-stag", cycleId: "c-overlap", cycleSortKey: nil, machineId: "DT-02", scoopNumber: nil, state: "queuing_idle", startS: 150, endS: 220, confidence: 0.95),
+        let c2 = HaulCycleDTO(
+            recordingId: "rec-2",
+            cycleId: "c2",
+            excavatorId: "E1",
+            excavatorSortKey: nil,
+            truckLabel: "T2",
+            cycleStatus: "complete",
+            tArriveS: 100,
+            tSpotS: 120,
+            tLoadStartS: 140,
+            tLoadEndS: 300,
+            tDepartS: 340,
+            queueTimeS: 20,
+            scoops: (1...4).map { idx in
+                ScoopTimingDTO(scoopNumber: idx, excavatorSegmentId: "s2-\(idx)", startS: 140, dumpS: 150, endS: 160)
+            },
+            truckSegments: nil
+        )
+
+        let segs1 = [
+            StateSegmentDTO(segmentId: "e1-w", recordingId: "rec-1", cycleId: "c1", cycleSortKey: nil, machineId: "E1", scoopNumber: 1, state: "loading_scoop", startS: 40, endS: 160, confidence: 0.95),
+            StateSegmentDTO(segmentId: "e1-i", recordingId: "rec-1", cycleId: "NONE", cycleSortKey: nil, machineId: "E1", scoopNumber: nil, state: "idle", startS: 200, endS: 240, confidence: 0.90),
+            StateSegmentDTO(segmentId: "t1-w", recordingId: "rec-1", cycleId: "c1", cycleSortKey: nil, machineId: "T1", scoopNumber: nil, state: "being_loaded", startS: 40, endS: 160, confidence: 0.96),
+            StateSegmentDTO(segmentId: "t1-i", recordingId: "rec-1", cycleId: "c1", cycleSortKey: nil, machineId: "T1", scoopNumber: nil, state: "queuing_idle", startS: 0, endS: 20, confidence: 0.92),
+        ]
+        let segs2 = [
+            StateSegmentDTO(segmentId: "e2-w", recordingId: "rec-2", cycleId: "c2", cycleSortKey: nil, machineId: "E1", scoopNumber: 1, state: "loading_scoop", startS: 140, endS: 300, confidence: 0.94),
+            StateSegmentDTO(segmentId: "e2-i", recordingId: "rec-2", cycleId: "NONE", cycleSortKey: nil, machineId: "E1", scoopNumber: nil, state: "idle", startS: 350, endS: 410, confidence: 0.91),
+            StateSegmentDTO(segmentId: "t2-w", recordingId: "rec-2", cycleId: "c2", cycleSortKey: nil, machineId: "T2", scoopNumber: nil, state: "being_loaded", startS: 140, endS: 300, confidence: 0.95),
+            StateSegmentDTO(segmentId: "t2-i", recordingId: "rec-2", cycleId: "c2", cycleSortKey: nil, machineId: "T2", scoopNumber: nil, state: "queuing_idle", startS: 100, endS: 140, confidence: 0.93),
         ]
 
-        let snap = TelemetryMetricsCalculator.computeSectionSnapshot(
-            sectionId: "BETA",
-            sectionName: "Beta",
-            recordings: [staggeredRec],
-            cycles: [cycInWindow, cycOverlap, cycOutOfWindow],
-            segments: segs,
-            config: config,
-            todStartS: 0,
-            todEndS: 3_600,
-            todBaseMinuteUTC: 360
+        let full = TelemetryMetricsCalculator.computeDashboardMetrics(
+            recordings: [rec1, rec2],
+            cycles: [c1, c2],
+            segments: segs1 + segs2
         )
+        let contrib1 = TelemetryMetricsCalculator.computeRecordingContribution(recordingId: "rec-1", cycles: [c1], segments: segs1)
+        let contrib2 = TelemetryMetricsCalculator.computeRecordingContribution(recordingId: "rec-2", cycles: [c2], segments: segs2)
+        let combined = TelemetryMetricsCalculator.combineContributions([contrib1, contrib2], recordingCount: 2)
 
-        #expect(abs(snap.totalCameraHours - 0.5) < 0.001)
-        #expect(snap.totalCycleCount == 2)
-        #expect(snap.queueDepthSummary.zero == 1)
-        #expect(snap.queueDepthSummary.one == 1)
-        #expect(snap.excavatorPocketSplit.emptyPocketIdleS >= 199.0)
-        #expect(snap.excavatorPocketSplit.spottedActiveS >= 99.0)
+        #expect(combined.recordingCount == full.recordingCount)
+        #expect(combined.completeCycleCount == full.completeCycleCount)
+        #expect(abs(combined.meanCyclesPerRecording - full.meanCyclesPerRecording) < 0.0001)
+        #expect(abs(combined.meanPassesPerCycle - full.meanPassesPerCycle) < 0.0001)
+        #expect(abs(combined.meanCycleTimeS - full.meanCycleTimeS) < 0.0001)
+        #expect(abs(combined.cycleTimeStdDevS - full.cycleTimeStdDevS) < 0.0001)
+        #expect(abs(combined.excavatorMeanIdleS - full.excavatorMeanIdleS) < 0.0001)
+        #expect(abs(combined.excavatorIdleStdDevS - full.excavatorIdleStdDevS) < 0.0001)
+        #expect(abs(combined.truckMeanIdleS - full.truckMeanIdleS) < 0.0001)
+        #expect(abs(combined.truckIdleStdDevS - full.truckIdleStdDevS) < 0.0001)
+        #expect(abs((combined.excavatorEEU ?? 0) - (full.excavatorEEU ?? 0)) < 0.0001)
+        #expect(abs((combined.truckEEU ?? 0) - (full.truckEEU ?? 0)) < 0.0001)
+    }
 
-        let drill = TelemetryMetricsCalculator.extractDrilldown(
-            cycles: [cycInWindow, cycOverlap],
-            segments: segs,
-            config: config
-        )
-        #expect(drill.audit.queueOverlapPct > 0)
-        #expect(drill.conflicts.isEmpty == false)
+    @Test func telemetryDiskCacheRoundtripsCompressedPayloadsAndClearsOnDemand() throws {
+        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent("ovius-cache-test-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        let cache = TelemetryDiskCache(directory: tempDir, isEnabled: true)
+        let nsA = "https://env-a.example.com/api/v1"
+        let nsB = "https://env-b.example.com/api/v1"
+
+        let cycles = [
+            HaulCycleDTO(
+                recordingId: "rec-cache-1",
+                cycleId: "c-cache-1",
+                excavatorId: "E1",
+                excavatorSortKey: nil,
+                truckLabel: "T1",
+                cycleStatus: "complete",
+                tArriveS: 10,
+                tSpotS: 25,
+                tLoadStartS: 40,
+                tLoadEndS: 140,
+                tDepartS: 160,
+                queueTimeS: 15,
+                scoops: [ScoopTimingDTO(scoopNumber: 1, excavatorSegmentId: "s-1", startS: 40, dumpS: 60, endS: 80)],
+                truckSegments: ["seg-1"]
+            )
+        ]
+        let segments = [
+            StateSegmentDTO(
+                segmentId: "seg-1",
+                recordingId: "rec-cache-1",
+                cycleId: "c-cache-1",
+                cycleSortKey: nil,
+                machineId: "T1",
+                scoopNumber: nil,
+                state: "being_loaded",
+                startS: 40,
+                endS: 140,
+                confidence: 0.94
+            )
+        ]
+
+        cache.save(recordingId: "rec-cache-1", cycles: cycles, segments: segments, namespace: nsA)
+
+        let loadedA = try #require(cache.load(recordingId: "rec-cache-1", namespace: nsA))
+        #expect(loadedA.cycles.count == 1)
+        #expect(loadedA.cycles[0].cycleId == "c-cache-1")
+        #expect(loadedA.segments.count == 1)
+        #expect(loadedA.segments[0].segmentId == "seg-1")
+
+        // Separate endpoint namespaces never collide.
+        #expect(cache.load(recordingId: "rec-cache-1", namespace: nsB) == nil)
+
+        cache.clearAll()
+        #expect(cache.load(recordingId: "rec-cache-1", namespace: nsA) == nil)
     }
 }
