@@ -118,15 +118,18 @@ public final class DatabaseManager {
     public func upsertCluster(
         clusterId: String,
         name: String,
-        tags: [String] = []
+        tags: [String] = [],
+        targets: FleetTargets? = nil
     ) throws -> Cluster {
         if let existing = try fetchCluster(clusterId: clusterId) {
             existing.name = name
             existing.tags = tags
+            if let targets { existing.apply(targets) }
             try context.save()
             return existing
         }
         let cluster = Cluster(clusterId: clusterId, name: name, tags: tags)
+        if let targets { cluster.apply(targets) }
         context.insert(cluster)
         try context.save()
         return cluster
@@ -234,18 +237,16 @@ public final class DatabaseManager {
 
     /// Client-side recording matcher mirroring `ovius_backend`'s `_filter_recordings_in_memory` AND semantics.
     public func filterRecordings(_ recordings: [RecordingDTO], matching section: Section) -> [RecordingDTO] {
-        let allowedCams = section.cameraIds.isEmpty ? nil : Set(section.cameraIds)
-        let allowedLocs = section.locationTags.isEmpty ? nil : Set(section.locationTags)
-        let allowedTags = section.customTags.isEmpty ? nil : Set(section.customTags)
-        let allowedFiles = section.filenames.isEmpty ? nil : Set(section.filenames)
+        recordings.filter { Self.matches(cameraId: $0.cameraId, locationTag: $0.locationTag, filename: $0.filename, tags: $0.tags, section: section) }
+    }
 
-        return recordings.filter { rec in
-            if let allowedCams, !allowedCams.contains(rec.cameraId) { return false }
-            if let allowedLocs, !allowedLocs.contains(rec.locationTag) { return false }
-            if let allowedFiles, !allowedFiles.contains(rec.filename) { return false }
-            if let allowedTags, Set(rec.tags).isDisjoint(with: allowedTags) { return false }
-            return true
-        }
+    /// Whether a recording with these details belongs to `section`: it must match every selector the section sets.
+    public static func matches(cameraId: String, locationTag: String, filename: String, tags: [String], section: Section) -> Bool {
+        if !section.cameraIds.isEmpty, !section.cameraIds.contains(cameraId) { return false }
+        if !section.locationTags.isEmpty, !section.locationTags.contains(locationTag) { return false }
+        if !section.filenames.isEmpty, !section.filenames.contains(filename) { return false }
+        if !section.customTags.isEmpty, Set(tags).isDisjoint(with: section.customTags) { return false }
+        return true
     }
 
     /// Builds wildcard `TelemetryQueryFilters` covering every section inside a `Cluster`.

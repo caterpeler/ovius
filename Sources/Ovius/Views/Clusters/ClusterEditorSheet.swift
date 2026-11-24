@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Modal sheet for creating or renaming a Domain 2 `Cluster`.
+/// Modal sheet for creating or renaming a Domain 2 `Cluster`. Its targets are set on the cluster's page.
 public struct ClusterEditorSheet: View {
     @Environment(\.dismiss) private var dismiss
 
@@ -20,31 +20,33 @@ public struct ClusterEditorSheet: View {
     }
 
     public var body: some View {
-        VStack(alignment: .leading, spacing: OviusDesign.Spacing.section) {
-            Text(existingCluster == nil ? "New Cluster" : "Edit Cluster")
-                .font(.title3.bold())
+        VStack(alignment: .leading, spacing: Ov.Space.l) {
+            Text(existingCluster == nil ? "New cluster" : "Rename cluster")
+                .font(.system(size: 20, weight: .semibold))
 
-            Form {
-                TextField("Cluster ID", text: $clusterId)
+            VStack(alignment: .leading, spacing: Ov.Space.m) {
+                OvField("Cluster ID", prompt: "CLUSTER_…", text: $clusterId)
                     .disabled(existingCluster != nil)
-                TextField("Display Name", text: $name)
-                TextField("Tags (comma-separated)", text: $tagsText)
+                    .opacity(existingCluster != nil ? 0.6 : 1)
+                OvField("Name", prompt: "Open-Pit Site", text: $name)
+                OvField("Tags, separated by commas", prompt: "site:north, shift:day", text: $tagsText)
             }
-            .formStyle(.grouped)
+            .ovCard()
 
             HStack {
                 Spacer()
                 Button("Cancel", action: closeSheet)
+                    .buttonStyle(.ovQuiet)
                     .keyboardShortcut(.cancelAction)
-
-                Button("Save Cluster", action: saveAndClose)
+                Button("Save cluster", action: saveAndClose)
+                    .buttonStyle(.ovPrimary)
                     .keyboardShortcut(.defaultAction)
-                    .buttonStyle(.borderedProminent)
                     .disabled(clusterId.trimmingCharacters(in: .whitespaces).isEmpty || name.trimmingCharacters(in: .whitespaces).isEmpty)
             }
         }
-        .padding(OviusDesign.Spacing.page)
-        .frame(minWidth: 420, idealWidth: 480, maxWidth: 580)
+        .padding(Ov.Space.xxl)
+        .frame(width: 480)
+        .background(Ov.canvas)
         .onAppear {
             if let existingCluster {
                 clusterId = existingCluster.clusterId

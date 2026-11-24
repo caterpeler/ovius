@@ -11,6 +11,11 @@ public final class DashboardViewModel {
 
     public let sidebar: DashboardSidebarViewModel
     public let explorer: DataExplorerViewModel
+    /// What the dashboard's analysis shows: the applied recordings as `FleetRecording`s, and the active cluster's targets.
+    public let fleet = FleetDashboardState()
+    /// Each recording's `FleetRecording`, kept until its telemetry or section changes.
+    private var fleetCache: [String: (key: FleetCacheKey, recording: FleetRecording)] = [:]
+    private struct FleetCacheKey: Equatable { let cycles: Int; let segments: Int; let section: String }
 
     // Applied Right-Panel Snapshot & Loading States
     public var filteredRecordings: [RecordingDTO] = []
@@ -40,6 +45,8 @@ public final class DashboardViewModel {
         self.repository = TelemetryRepository(networkManager: resolvedNet, diskCache: resolvedCache)
         self.sidebar = DashboardSidebarViewModel(databaseManager: resolvedDB, referenceDate: referenceDate)
         self.explorer = DataExplorerViewModel()
+        fleet.targetsSource = { [sidebar] in sidebar.activeCluster?.fleetTargets ?? FleetTargets() }
+        fleet.clusterNameSource = { [sidebar] in sidebar.activeCluster?.name }
     }
 
     // MARK: - Initial Load, Catalog & Cluster Switching
@@ -66,13 +73,16 @@ public final class DashboardViewModel {
 
     public func clearTelemetryCaches() {
         repository.clearAll()
+        fleetCache = [:]
     }
 
     public func selectCluster(_ clusterId: String) {
         guard repository.cachedClusterId != clusterId else { return }
         repository.resetForClusterSwitch()
+        fleetCache = [:]
         filteredRecordings = []
         metricsSummary = .empty
+        fleet.show([], pooled: nil)
         explorer.resetForClusterChange()
         sidebar.prepareClusterSwitch(clusterId)
 
@@ -183,6 +193,7 @@ public final class DashboardViewModel {
             filteredRecordings = []
             explorer.recordingRows = []
             metricsSummary = .empty
+            fleet.show([], pooled: nil)
             return
         }
 
@@ -299,6 +310,7 @@ public final class DashboardViewModel {
         let snapshot = repository.makeSnapshotSync(for: activeRecs, progressive: progressive)
         metricsSummary = snapshot.summary
         explorer.recordingRows = snapshot.rows
+        publishFleet(activeRecs, progressive: progressive)
     }
 
     private func projectFromCache() async {
@@ -315,10 +327,39 @@ public final class DashboardViewModel {
 
         metricsSummary = snapshot.summary
         explorer.recordingRows = snapshot.rows
+        publishFleet(activeRecs, progressive: false)
         explorer.reconcileAfterRecordingSnapshotUpdate(
             cyclesProvider: repository.cycles(for:),
             segmentsProvider: repository.segments(for:)
         )
+    }
+
+    /// A recording's dashboard figures, when its telemetry has been loaded this session.
+    public func loadedFleetRecording(for recordingId: String) -> FleetRecording? {
+        fleetCache[recordingId]?.recording
+    }
+
+    /// Hands the applied recordings to the dashboard's analysis, oldest first. While telemetry streams in, only the
+    /// recordings that have some yet are shown.
+    private func publishFleet(_ recs: [RecordingDTO], progressive: Bool) {
+        var list: [FleetRecording] = []
+        list.reserveCapacity(recs.count)
+        for rec in recs {
+            let cycles = repository.cycles(for: rec.recordingId)
+            let segments = repository.segments(for: rec.recordingId)
+            if progressive && cycles.isEmpty && segments.isEmpty { continue }
+            let section = sidebar.sectionMapByRecId[rec.recordingId]?.sectionName ?? "Unassigned"
+            let key = FleetCacheKey(cycles: cycles.count, segments: segments.count, section: section)
+            if let hit = fleetCache[rec.recordingId], hit.key == key {
+                list.append(hit.recording)
+                continue
+            }
+            let made = FleetTelemetryAdapter.recording(rec, sectionName: section, cycles: cycles, segments: segments)
+            fleetCache[rec.recordingId] = (key, made)
+            list.append(made)
+        }
+        list.sort { ($0.date ?? .distantPast, $0.camera) < ($1.date ?? .distantPast, $1.camera) }
+        fleet.show(list, pooled: progressive ? nil : metricsSummary)
     }
 
     // MARK: - Testing Support

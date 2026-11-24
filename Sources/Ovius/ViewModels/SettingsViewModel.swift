@@ -54,8 +54,9 @@ public final class SettingsViewModel {
 
     public func clearDiskCache() {
         diskCache.clearAll()
+        Task { await BoxTrackStore.shared.clearAll() }
         refreshCacheStats()
-        statusMessage = "Cleared compressed offline telemetry cache."
+        statusMessage = "Cleared compressed offline telemetry cache and downloaded box tracks."
     }
 
     public func saveSettings() async {

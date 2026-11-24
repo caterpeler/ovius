@@ -30,5 +30,10 @@ cat > "$app/Contents/Info.plist" <<PLIST
 </dict>
 </plist>
 PLIST
+# The activity player's VideoPlayer aborts at run time without AVKit (see linkerSettings in Package.swift).
+if ! otool -L "$app/Contents/MacOS/Ovius" | grep -q '/AVKit.framework/'; then
+    echo "error: Ovius isn't linked against AVKit, so playing an activity would crash" >&2
+    exit 1
+fi
 codesign --force --sign - "$app"
 echo "Built $app"

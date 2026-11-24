@@ -167,7 +167,8 @@ public struct RecordingDTO: Codable, Sendable, Identifiable, Equatable {
         let filename = try container.decode(String.self, forKey: .filename)
         let timestamp = try container.decode(String.self, forKey: .timestamp)
         let cameraId = try container.decode(String.self, forKey: .cameraId)
-        let locationTag = try container.decode(String.self, forKey: .locationTag)
+        // Optional in the backend's schema: an upload session may register a recording without one.
+        let locationTag = try container.decodeIfPresent(String.self, forKey: .locationTag) ?? ""
         let durationS = try container.decode(Double.self, forKey: .durationS)
         let fps = try container.decode(Double.self, forKey: .fps)
         let resolution = try container.decode(String.self, forKey: .resolution)
@@ -356,6 +357,24 @@ public struct StateSegmentDTO: Codable, Sendable, Identifiable, Equatable {
         self.startS = startS
         self.endS = endS
         self.confidence = confidence
+    }
+
+    /// Tolerates the fields the backend may leave out: segments the GPU worker wrote before it set `"NONE"` on
+    /// unlinked segments have no `cycle_id`, and `confidence` is optional in the schema (taken as certain).
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            segmentId: try container.decode(String.self, forKey: .segmentId),
+            recordingId: try container.decode(String.self, forKey: .recordingId),
+            cycleId: try container.decodeIfPresent(String.self, forKey: .cycleId) ?? "NONE",
+            cycleSortKey: try container.decodeIfPresent(String.self, forKey: .cycleSortKey),
+            machineId: try container.decode(String.self, forKey: .machineId),
+            scoopNumber: try container.decodeIfPresent(Int.self, forKey: .scoopNumber),
+            state: try container.decode(String.self, forKey: .state),
+            startS: try container.decode(Double.self, forKey: .startS),
+            endS: try container.decode(Double.self, forKey: .endS),
+            confidence: try container.decodeIfPresent(Double.self, forKey: .confidence) ?? 1
+        )
     }
 
     /// Typed representation of `state`, or `nil` for unrecognized values.

@@ -86,7 +86,7 @@ public actor NetworkManager {
         }
     }
 
-    private let session: URLSession
+    let session: URLSession
     private var configuration: Configuration
 
     public init(
@@ -151,6 +151,22 @@ public actor NetworkManager {
     public func fetchVideosTemplate(filters: TelemetryQueryFilters = TelemetryQueryFilters()) async throws -> TemplatePageResponse<VideoTemplateItemDTO> {
         let config = configuration
         return try await Self.requestNonisolated(path: "videos", filters: filters, session: session, configuration: config)
+    }
+
+    /// Downloads a file from a pre-signed S3 link (`/bboxes`, `/videos`). The links are signed for GET only and
+    /// expire after an hour, so get a fresh one right before downloading; the API key is never sent to S3.
+    public nonisolated func downloadPresigned(_ url: URL) async throws -> Data {
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.timeoutInterval = 120
+        let (data, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse else { throw NetworkError.invalidResponse }
+        guard (200..<300).contains(http.statusCode) else {
+            let raw = String(decoding: data, as: UTF8.self)
+            let code = raw.range(of: "(?<=<Code>)[^<]+", options: .regularExpression).map { String(raw[$0]) }
+            throw NetworkError.httpError(statusCode: http.statusCode, message: code.map { "S3 \($0)" } ?? "S3 refused the download")
+        }
+        return data
     }
 
     // MARK: - Parallel Cursor-Paginated Fetches (Off-Actor)
@@ -523,13 +539,37 @@ public actor NetworkManager {
         return try await Task.detached(priority: .userInitiated) {
             do {
                 return try JSONDecoder().decode(Response.self, from: data)
+            } catch let error as DecodingError {
+                throw NetworkError.decodingFailed("\(url.path): \(Self.describe(error))")
             } catch {
                 throw NetworkError.decodingFailed(error.localizedDescription)
             }
         }.value
     }
 
-    private nonisolated static func mapHTTPError(statusCode: Int, data: Data) -> NetworkError {
+    /// Names the field that failed (`state_segments[3].cycle_id`), which `localizedDescription` leaves out.
+    nonisolated static func describe(_ error: DecodingError) -> String {
+        func path(_ codingPath: [CodingKey]) -> String {
+            codingPath.reduce("") { acc, key in
+                if let index = key.intValue { return acc + "[\(index)]" }
+                return acc.isEmpty ? key.stringValue : acc + "." + key.stringValue
+            }
+        }
+        switch error {
+        case .keyNotFound(let key, let context):
+            return "missing \(path(context.codingPath + [key]))"
+        case .valueNotFound(_, let context):
+            return "null \(path(context.codingPath))"
+        case .typeMismatch(let type, let context):
+            return "\(path(context.codingPath)) is not \(type)"
+        case .dataCorrupted(let context):
+            return "\(path(context.codingPath)): \(context.debugDescription)"
+        @unknown default:
+            return error.localizedDescription
+        }
+    }
+
+    nonisolated static func mapHTTPError(statusCode: Int, data: Data) -> NetworkError {
         if let apiError = try? JSONDecoder().decode(APIErrorResponse.self, from: data) {
             if statusCode == 400 {
                 return .badRequest(apiError.message ?? apiError.error)

@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Modal sheet for creating or editing a Domain 2 `Section` and its dynamic recording selectors.
+/// Modal sheet for creating or editing a Domain 2 `Section` and its recording selectors.
 public struct SectionEditorSheet: View {
     @Environment(\.dismiss) private var dismiss
 
@@ -45,40 +45,43 @@ public struct SectionEditorSheet: View {
     }
 
     public var body: some View {
-        VStack(alignment: .leading, spacing: OviusDesign.Spacing.section) {
-            Text(existingSection == nil ? "New Section" : "Edit Section Selectors")
-                .font(.title3.bold())
+        VStack(alignment: .leading, spacing: Ov.Space.l) {
+            Text(existingSection == nil ? "New section" : "Edit section")
+                .font(.system(size: 20, weight: .semibold))
 
-            Form {
-                SwiftUI.Section("Identity") {
-                    TextField("Section ID", text: $sectionId)
-                        .disabled(existingSection != nil)
-                    TextField("Display Name", text: $name)
-                    TextField("Assigned Trucks (optional)", text: $assignedTrucksText)
-                }
-
-                SwiftUI.Section("Dynamic AWS Query Selectors (comma-separated)") {
-                    TextField("Camera IDs (uses GSI)", text: $cameraIdsText)
-                    TextField("Location Tags", text: $locationTagsText)
-                    TextField("Custom Tags", text: $customTagsText)
-                    TextField("Exact Filenames", text: $filenamesText)
-                }
+            VStack(alignment: .leading, spacing: Ov.Space.m) {
+                OvCardHeader("About")
+                OvField("Section ID", prompt: "SEC_…", text: $sectionId)
+                    .disabled(existingSection != nil)
+                    .opacity(existingSection != nil ? 0.6 : 1)
+                OvField("Name", prompt: "Section Alpha", text: $name)
+                OvField("Assigned trucks (optional; found from telemetry when empty)", prompt: "8", text: $assignedTrucksText)
             }
-            .formStyle(.grouped)
+            .ovCard()
+
+            VStack(alignment: .leading, spacing: Ov.Space.m) {
+                OvCardHeader("Recording selectors", subtitle: "Separate several with commas. A recording must match every one that is set.")
+                OvField("Camera IDs", prompt: "CAM-ALPHA-01, CAM-ALPHA-02", text: $cameraIdsText)
+                OvField("Location tags", prompt: "Section Alpha - Wide Overview Bench", text: $locationTagsText)
+                OvField("Custom tags", prompt: "section:Alpha", text: $customTagsText)
+                OvField("Exact filenames", prompt: "2026-11-16_clip.mp4", text: $filenamesText)
+            }
+            .ovCard()
 
             HStack {
                 Spacer()
                 Button("Cancel", action: closeSheet)
+                    .buttonStyle(.ovQuiet)
                     .keyboardShortcut(.cancelAction)
-
-                Button("Save Section", action: saveAndClose)
+                Button("Save section", action: saveAndClose)
+                    .buttonStyle(.ovPrimary)
                     .keyboardShortcut(.defaultAction)
-                    .buttonStyle(.borderedProminent)
                     .disabled(sectionId.trimmingCharacters(in: .whitespaces).isEmpty || name.trimmingCharacters(in: .whitespaces).isEmpty)
             }
         }
-        .padding(OviusDesign.Spacing.page)
-        .frame(minWidth: 480, idealWidth: 540, maxWidth: 640)
+        .padding(Ov.Space.xxl)
+        .frame(width: 560)
+        .background(Ov.canvas)
         .onAppear {
             if let existingSection {
                 sectionId = existingSection.sectionId

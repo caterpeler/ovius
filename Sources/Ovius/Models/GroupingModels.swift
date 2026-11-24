@@ -11,6 +11,17 @@ public final class Cluster {
     public var createdAt: Date
     public var tags: [String]
 
+    // Optional performance targets (SLA). Each one set turns the dashboard's comparison to it on; with none set the
+    // dashboard judges figures by their own spread.
+    /// Least excavator EEU, in percent.
+    public var targetExcavatorEEU: Double?
+    /// Least truck EEU, in percent.
+    public var targetTruckEEU: Double?
+    /// Longest a truck should queue, in seconds.
+    public var targetMaxQueueS: Double?
+    /// Longest a cycle (arrival to departure) should take, in seconds.
+    public var targetMaxCycleS: Double?
+
     @Relationship(deleteRule: .cascade, inverse: \Section.cluster)
     public var sections: [Section] = []
 
@@ -24,6 +35,20 @@ public final class Cluster {
         self.name = name
         self.createdAt = createdAt
         self.tags = tags
+    }
+}
+
+extension Cluster {
+    /// The cluster's targets, as the dashboard reads them.
+    public var fleetTargets: FleetTargets {
+        FleetTargets(excEEU: targetExcavatorEEU, truckEEU: targetTruckEEU, maxQueueS: targetMaxQueueS, maxCycleS: targetMaxCycleS)
+    }
+
+    func apply(_ t: FleetTargets) {
+        targetExcavatorEEU = t.excEEU
+        targetTruckEEU = t.truckEEU
+        targetMaxQueueS = t.maxQueueS
+        targetMaxCycleS = t.maxCycleS
     }
 }
 

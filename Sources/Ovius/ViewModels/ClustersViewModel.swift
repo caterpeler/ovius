@@ -11,6 +11,8 @@ public final class ClustersViewModel {
     public var clusters: [Cluster] = []
     public var selectedClusterId: String?
     public var selectedSectionId: String?
+    /// Whether the page shows the selected cluster (its targets and sections) or the selected section.
+    public var showsCluster = true
 
     public var previewRecordings: [RecordingDTO] = []
     public var isTestingSelector: Bool = false
@@ -59,7 +61,7 @@ public final class ClustersViewModel {
         }
     }
 
-    public func createOrUpdateCluster(clusterId: String, name: String, tagsText: String) {
+    public func createOrUpdateCluster(clusterId: String, name: String, tagsText: String, targets: FleetTargets? = nil) {
         errorMessage = nil
         let cleanId = clusterId.trimmingCharacters(in: .whitespacesAndNewlines)
         let cleanName = name.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -69,12 +71,33 @@ public final class ClustersViewModel {
         }
         let tags = parseCSV(tagsText)
         do {
-            let saved = try databaseManager.upsertCluster(clusterId: cleanId, name: cleanName, tags: tags)
+            let saved = try databaseManager.upsertCluster(clusterId: cleanId, name: cleanName, tags: tags, targets: targets)
             reload()
             selectedClusterId = saved.clusterId
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+
+    /// Opens a cluster's page: its targets, tags and sections.
+    public func openCluster(_ clusterId: String) {
+        selectedClusterId = clusterId
+        showsCluster = true
+    }
+
+    /// Opens a section's page: its selectors and the AWS check.
+    public func openSection(_ section: Section) {
+        selectedClusterId = section.clusterId
+        selectedSectionId = section.sectionId
+        showsCluster = false
+        previewRecordings = []
+        selectorTestMessage = nil
+    }
+
+    /// Saves a cluster's targets, keeping its name and tags.
+    public func saveTargets(_ targets: FleetTargets, for cluster: Cluster) {
+        createOrUpdateCluster(clusterId: cluster.clusterId, name: cluster.name,
+                              tagsText: cluster.tags.joined(separator: ", "), targets: targets)
     }
 
     public func deleteCluster(_ cluster: Cluster) {

@@ -4,6 +4,7 @@ import Foundation
 public enum AppSidebarTab: String, CaseIterable, Identifiable, Sendable {
     case dashboard
     case clusters
+    case uploads
     case settings
 
     public var id: String { rawValue }
@@ -12,6 +13,7 @@ public enum AppSidebarTab: String, CaseIterable, Identifiable, Sendable {
         switch self {
         case .dashboard: "Dashboard"
         case .clusters: "Clusters & Sections"
+        case .uploads: "Uploads"
         case .settings: "Settings"
         }
     }
@@ -20,6 +22,7 @@ public enum AppSidebarTab: String, CaseIterable, Identifiable, Sendable {
         switch self {
         case .dashboard: "gauge.with.dots.needle.33percent"
         case .clusters: "square.stack.3d.up"
+        case .uploads: "arrow.up.circle"
         case .settings: "gearshape"
         }
     }
